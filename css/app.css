@@ -1,4 +1,4 @@
-/* Quête d'Échecs : interface sombre, plateau vert, boutons en relief. */
+/* Chess Up : interface sombre, plateau vert, boutons en relief. */
 :root {
   color-scheme: dark;
   --bg: #262522;
@@ -399,4 +399,10 @@ input, select, textarea { font: 400 1rem var(--sans); color: var(--text); backgr
 @media (max-width: 560px) {
   .plan-item { grid-template-columns: auto minmax(0, 1fr); }
   .plan-item .btn { grid-column: 1 / -1; text-align: center; }
+}
+
+/* Installation */
+.install { margin-top: auto; white-space: normal; }
+@media (max-width: 860px) {
+  .install { margin-top: .25rem; }
 }

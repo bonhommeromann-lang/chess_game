@@ -1,4 +1,5 @@
 // État du joueur, persistant dans le navigateur, avec export/import pour le sauvegarder.
+// Nom d'origine conservé : le changer ferait perdre leur progression aux joueurs existants.
 const KEY = 'quete-echecs.v1';
 
 export const emptyState = () => ({

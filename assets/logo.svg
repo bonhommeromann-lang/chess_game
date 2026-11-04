@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Chess Up">
+  <rect width="512" height="512" rx="112" fill="#262522"/>
+  <path d="M256 56 440 216H72Z" fill="#81b64c"/>
+  <path d="M176 216h80v80h-80zM256 296h80v80h-80zM176 376h80v80h-80z" fill="#ebecd0"/>
+  <path d="M256 216h80v80h-80zM176 296h80v80h-80zM256 376h80v80h-80z" fill="#81b64c"/>
+</svg>

@@ -6,6 +6,7 @@ import { refreshPlacement } from './core/plan.js';
 import { SKILLS } from './data/skills.js';
 import { refreshElo, refreshSync } from './views/elobar.js';
 import { onSync, syncAccount } from './sync.js';
+import { setupInstall } from './install.js';
 import { renderHome } from './views/home.js';
 import { renderTree, renderSkill } from './views/tree.js';
 import { renderSkillSession, renderQuestTactics } from './views/session.js';
@@ -81,4 +82,5 @@ onSync(() => {
 
 window.addEventListener('hashchange', navigate);
 navigate();
+setupInstall();
 syncAccount();

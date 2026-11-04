@@ -7,6 +7,7 @@ import { splitPgn } from '../analysis.js';
 import {
   analysePastedGames, PLATFORMS, syncAccount, syncStatus, unlinkAccount,
 } from '../sync.js';
+import { canPromptInstall, installHint, isInstalled, promptInstall } from '../install.js';
 import { esc } from './ui.js';
 
 const OUTCOME = { win: 'Victoire', loss: 'Défaite', draw: 'Nulle', unknown: '—' };
@@ -92,6 +93,11 @@ export function renderGames(app) {
         </form>
       </details>
     </section>
+    ${isInstalled() ? '' : `<section class="panel">
+      <h2>Installer Chess Up</h2>
+      <p class="muted">Garde l’application sur ton écran d’accueil. Les exercices et le mode histoire fonctionnent ensuite hors ligne.</p>
+      ${canPromptInstall() ? '<button class="btn primary" data-install-now>Installer l’application</button>' : `<p>${esc(installHint())}</p>`}
+    </section>`}
     <section class="panel">
       <h2>Sauvegarde</h2>
       <p class="muted">Ta progression reste dans ce navigateur. Exporte-la pour la conserver ou la déplacer.</p>
@@ -103,6 +109,7 @@ export function renderGames(app) {
       <p class="feedback" data-save-status role="status"></p>
     </section>`;
 
+  app.querySelector('[data-install-now]')?.addEventListener('click', promptInstall);
   const backToWelcome = () => { location.hash = '#/'; };
   app.querySelector('[data-sync-now]')?.addEventListener('click', () => syncAccount());
   app.querySelector('[data-link]')?.addEventListener('click', () => {
@@ -135,7 +142,7 @@ export function renderGames(app) {
     const blob = new Blob([exportState()], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `quete-echecs-${today}.json`;
+    a.download = `chess-up-${today}.json`;
     a.click();
     URL.revokeObjectURL(a.href);
   };

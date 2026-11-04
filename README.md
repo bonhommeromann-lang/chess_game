@@ -1,4 +1,4 @@
-# Quête d'Échecs
+# Chess Up
 
 Application web pour progresser aux échecs : arbre de compétences, boss de finales, parties
 célèbres à deviner, et analyse de vos vraies parties. La règle de conception : chaque récompense
@@ -14,6 +14,17 @@ python serve.py
 
 L'application s'ouvre sur <http://localhost:8000>. Aucune installation ni compilation : ce sont des
 fichiers statiques, hébergeables tels quels (GitHub Pages par exemple).
+
+## Installer l'application
+
+Chess Up s'installe comme une application, sur téléphone ou ordinateur, et ses exercices fonctionnent
+hors ligne. L'installation exige que l'application soit servie en **HTTPS** : `localhost` convient sur
+la machine qui lance le serveur, mais un téléphone a besoin d'une version en ligne (GitHub Pages par
+exemple). Avant chaque publication, lancer `python tools/build_sw.py` pour actualiser la version hors
+ligne.
+
+- **Android et ordinateur** : bouton « Installer l'application » dans la barre latérale, ou menu du navigateur.
+- **iPhone et iPad** : dans Safari, Partager puis « Sur l'écran d'accueil ».
 
 La progression est stockée dans le navigateur. L'onglet **Parties** permet de l'exporter et de la
 réimporter.
@@ -34,7 +45,7 @@ réimporter.
 
 ## Réseau
 
-Tout fonctionne hors ligne sauf :
+Une fois la page chargée une première fois, tout fonctionne hors ligne sauf :
 
 - **les boss**, qui interrogent `tablebase.lichess.ovh` à chaque coup ;
 - **la synchro du compte** Lichess ou Chess.com ;
@@ -70,6 +81,7 @@ python tests/run_tests.py      # règles et validation de tout le contenu
 python tests/e2e.py            # parcours complet dans Edge, avec captures
 python tests/e2e_boss.py       # chaque boss joué contre la vraie table de finales
 python tests/e2e_sync.py       # écran de bienvenue, synchro, reprise, changement de compte
+python tests/e2e_pwa.py        # installation et fonctionnement hors ligne
 python tests/eval_motifs.py    # motifs tactiques mesurés sur des puzzles étiquetés
 python tests/eval_errors.py    # erreurs comparées aux annotations de l'analyse serveur Lichess
 ```
@@ -85,6 +97,8 @@ Pour une exécution manuelle des tests de règles : ouvrir `/tests/` sur le serv
 ```
 python tools/build_puzzles.py     # Python 3.14+ ; lit la base de puzzles en flux
 python tools/build_endgames.py    # pip install chess ; valide chaque position par la table
+python tools/build_icons.py       # pip install playwright ; icônes PNG depuis assets/logo.svg
+python tools/build_sw.py          # liste hors ligne et version de sw.js
 ```
 
 ## Structure
@@ -108,6 +122,7 @@ vendor/        dépendances embarquées
 | Moteur | Stockfish 10, paquet `stockfish.js` | **GPL v3** |
 | Règles | `chess.js` | BSD-2 |
 | Pièces | jeu Cburnett, via Lichess | GPL v2+ |
+| Logo | créé pour le projet | — |
 | Puzzles | base Lichess | CC0 |
 | Coups des parties | archives PGN Mentor | faits de jeu |
 | Tables de finales | API publique Lichess | service tiers |

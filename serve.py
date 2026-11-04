@@ -25,7 +25,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 args = [a for a in sys.argv[1:] if not a.startswith("--")]
 port = int(args[0]) if args else 8000
 url = f"http://localhost:{port}"
-print(f"Quete d'Echecs : {url}  (Ctrl+C pour arreter)", flush=True)
+print(f"Chess Up : {url}  (Ctrl+C pour arreter)", flush=True)
 if "--no-open" not in sys.argv:
     webbrowser.open(url)
 http.server.ThreadingHTTPServer(("127.0.0.1", port), Handler).serve_forever()

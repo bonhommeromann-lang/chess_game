@@ -21,7 +21,7 @@ def fetch(user):
     query = urllib.parse.urlencode({"max": PER_USER, "analysed": "true", "evals": "true", "literate": "true", "rated": "true",
                                     "perfType": "blitz,rapid,classical"})
     url = f"https://lichess.org/api/games/user/{urllib.parse.quote(user)}?{query}"
-    req = urllib.request.Request(url, headers={"Accept": "application/x-chess-pgn", "User-Agent": "chess-quest-data-builder"})
+    req = urllib.request.Request(url, headers={"Accept": "application/x-chess-pgn", "User-Agent": "chess-up-data-builder"})
     with urllib.request.urlopen(req, timeout=60) as resp:
         return resp.read().decode("utf8")
 

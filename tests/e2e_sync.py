@@ -85,7 +85,7 @@ def wait_games(page, count, timeout=240000):
 try:
     with sync_playwright() as p:
         browser = p.chromium.launch(channel="msedge", headless=True)
-        ctx = browser.new_context(viewport={"width": 1280, "height": 900})
+        ctx = browser.new_context(service_workers="block", viewport={"width": 1280, "height": 900})
         page = ctx.new_page()
         js_errors = []
         page.on("pageerror", lambda e: js_errors.append(str(e)))
@@ -174,7 +174,7 @@ try:
         seed = {"version": 1, "skills": {}, "seen": {}, "bosses": {}, "story": {}, "badges": {}, "daily": {}, "log": [],
                 "games": [record("a", [error("fourchette")]), record("b", [error("fourchette"), error("lucena")])],
                 "settings": {"username": "", "platform": None, "onboarded": True}}
-        ctx3 = browser.new_context(viewport={"width": 1280, "height": 900})
+        ctx3 = browser.new_context(service_workers="block", viewport={"width": 1280, "height": 900})
         pp = ctx3.new_page()
         pp.on("pageerror", lambda e: js_errors.append(str(e)))
         pp.goto(BASE)
@@ -197,7 +197,7 @@ try:
         ok("plan : rien n'est validé sans exercice", not pst["skills"].get("fourchette", {}).get("validatedDay"))
 
         # Plateforme indisponible : message clair, pas de plantage
-        ctx2 = browser.new_context()
+        ctx2 = browser.new_context(service_workers="block")
         pg = ctx2.new_page()
         pg.on("pageerror", lambda e: js_errors.append(str(e)))
         pg.route("https://api.chess.com/**", lambda r: r.abort())
@@ -209,7 +209,7 @@ try:
         ok("hors ligne : message clair", "joignable" in pg.inner_text("[data-error]"), pg.inner_text("[data-error]"))
 
         # Vraie API Chess.com : formats réels, sans analyse
-        real = browser.new_context().new_page()
+        real = browser.new_context(service_workers="block").new_page()
         real.goto(BASE)
         result = real.evaluate("""async () => {
             const { verifyAccount } = await import('/src/sync.js');

@@ -55,7 +55,7 @@ def main():
             len(b) >= PER_BAND for bands in buckets.values() for b in bands
         )
 
-    req = urllib.request.Request(URL, headers={"User-Agent": "chess-quest-data-builder"})
+    req = urllib.request.Request(URL, headers={"User-Agent": "chess-up-data-builder"})
     with urllib.request.urlopen(req, timeout=120) as resp:
         while not done():
             chunk = resp.read(1 << 18)

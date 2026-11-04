@@ -6,7 +6,7 @@ import { esc } from './ui.js';
 export function renderWelcome(app, onDone) {
   app.innerHTML = `
     <section class="welcome">
-      <img src="vendor/pieces/wN.svg" alt="" width="72" height="72">
+      <img src="assets/logo.svg" alt="" width="88" height="88">
       <h1>Quel est ton pseudo ?</h1>
       <p class="lead">L’application analyse tes parties pour estimer ton niveau et te proposer les entraînements dont tu as besoin.</p>
       <form data-welcome class="form">

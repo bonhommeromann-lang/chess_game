@@ -53,7 +53,7 @@ SEED = {
 
 def tablebase(fen):
     url = "https://tablebase.lichess.ovh/standard?fen=" + urllib.parse.quote(fen.replace(" ", "_"))
-    req = urllib.request.Request(url, headers={"User-Agent": "chess-quest-e2e"})
+    req = urllib.request.Request(url, headers={"User-Agent": "chess-up-e2e"})
     for _ in range(5):
         try:
             with urllib.request.urlopen(req, timeout=30) as r:
@@ -151,7 +151,7 @@ def fight(page, boss, turn, blunder_kind):
 try:
     with sync_playwright() as p:
         browser = p.chromium.launch(channel="msedge", headless=True)
-        ctx = browser.new_context(viewport={"width": 1280, "height": 900})
+        ctx = browser.new_context(service_workers="block", viewport={"width": 1280, "height": 900})
         page = ctx.new_page()
         js_errors = []
         page.on("pageerror", lambda e: js_errors.append(str(e)))

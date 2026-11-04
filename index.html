@@ -3,15 +3,23 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Quête d’Échecs</title>
+  <title>Chess Up</title>
   <meta name="description" content="Progresser aux échecs : arbre de compétences, boss de finales, parties célèbres et analyse de vos vraies parties.">
-  <link rel="icon" href="vendor/pieces/wN.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#1f1e1c">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="Chess Up">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+  <link rel="alternate icon" href="assets/favicon-32.png" type="image/png">
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
   <link rel="stylesheet" href="css/app.css">
 </head>
 <body>
   <a class="skip" href="#app">Aller au contenu</a>
   <aside class="sidebar">
-    <a class="brand" href="#/"><img src="vendor/pieces/wN.svg" alt="" width="32" height="32"><span>Quête d’Échecs</span></a>
+    <a class="brand" href="#/"><img src="assets/logo.svg" alt="" width="34" height="34"><span>Chess Up</span></a>
     <nav aria-label="Navigation principale">
       <a href="#/" data-nav="home"><img src="vendor/pieces/wK.svg" alt="">Aujourd’hui</a>
       <a href="#/arbre" data-nav="arbre"><img src="vendor/pieces/wP.svg" alt="">Compétences</a>
@@ -20,6 +28,7 @@
       <a href="#/parties" data-nav="parties"><img src="vendor/pieces/wR.svg" alt="">Parties</a>
       <a href="#/progres" data-nav="progres"><img src="vendor/pieces/wN.svg" alt="">Progrès</a>
     </nav>
+    <button class="btn small primary install" data-install hidden>Installer l’application</button>
   </aside>
   <div class="content">
     <header class="topbar">

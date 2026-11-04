@@ -77,7 +77,7 @@ def board_from_page(page, turn=chess.WHITE):
 
 def tablebase(fen):
     url = "https://tablebase.lichess.ovh/standard?fen=" + urllib.parse.quote(fen.replace(" ", "_"))
-    req = urllib.request.Request(url, headers={"User-Agent": "chess-quest-e2e"})
+    req = urllib.request.Request(url, headers={"User-Agent": "chess-up-e2e"})
     with urllib.request.urlopen(req, timeout=30) as r:
         return json.load(r)
 
@@ -85,7 +85,7 @@ def tablebase(fen):
 try:
     with sync_playwright() as p:
         browser = p.chromium.launch(channel="msedge", headless=True)
-        ctx = browser.new_context(viewport={"width": 1280, "height": 900})
+        ctx = browser.new_context(service_workers="block", viewport={"width": 1280, "height": 900})
         page = ctx.new_page()
         js_errors = []
         page.on("pageerror", lambda e: js_errors.append(str(e)))
@@ -284,7 +284,7 @@ try:
         page.screenshot(path=SHOTS / "17-progres.png", full_page=True)
 
         # --- Téléphone
-        phone = browser.new_context(viewport={"width": 375, "height": 720}, has_touch=True)
+        phone = browser.new_context(service_workers="block", viewport={"width": 375, "height": 720}, has_touch=True)
         mp = phone.new_page()
         mp.goto(BASE)
         mp.wait_for_selector("[data-welcome]")

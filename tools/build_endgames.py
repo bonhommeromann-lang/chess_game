@@ -26,7 +26,7 @@ def probe(fen):
     url = API + urllib.parse.quote(fen.replace(" ", "_"))
     for attempt in range(6):
         try:
-            req = urllib.request.Request(url, headers={"User-Agent": "chess-quest-data-builder"})
+            req = urllib.request.Request(url, headers={"User-Agent": "chess-up-data-builder"})
             with urllib.request.urlopen(req, timeout=30) as resp:
                 cache[fen] = json.load(resp)
                 time.sleep(0.25)

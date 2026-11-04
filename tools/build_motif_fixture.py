@@ -27,7 +27,7 @@ def main():
     decomp = zstd.ZstdDecompressor()
     buf = b""
     header = None
-    req = urllib.request.Request(URL, headers={"User-Agent": "chess-quest-data-builder"})
+    req = urllib.request.Request(URL, headers={"User-Agent": "chess-up-data-builder"})
     with urllib.request.urlopen(req, timeout=120) as resp:
         while any(len(b) < PER_THEME for b in buckets.values()) or len(others) < OTHERS:
             chunk = resp.read(1 << 18)
