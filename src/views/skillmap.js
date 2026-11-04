@@ -76,7 +76,7 @@ function wrapLabel(text, width = 14) {
 
 const pieceUrl = (color, piece) => new URL(`../../vendor/pieces/${color}${piece}.svg`, import.meta.url).href;
 
-function drawNode(state, skill, pos, today, cls) {
+function drawNode(state, skill, pos, today, cls, recommended) {
   const status = skillStatus(state, skill, today);
   const data = skillData(state, skill.id);
   const size = pos.r * 1.25;
@@ -100,7 +100,8 @@ function drawNode(state, skill, pos, today, cls) {
     `<text class="map-label" x="${pos.x}" y="${labelY + i * 15}">${esc(line)}</text>`).join('');
   const flagged = isFlagged(state, skill, today) ? ', signalée par tes parties' : '';
   return `<a class="map-node ${status} ${cls}" href="#/competence/${skill.id}" data-skill="${skill.id}"
-      aria-label="${esc(skill.name)}, ${STATUS_LABEL[status]}${skill.boss ? ', boss' : ''}${flagged}">
+      aria-label="${esc(skill.name)}, ${STATUS_LABEL[status]}${skill.boss ? ', boss' : ''}${flagged}${recommended.has(skill.id) ? ', recommandée' : ''}">
+    ${recommended.has(skill.id) ? `<circle class="map-reco" cx="${pos.x}" cy="${pos.y}" r="${pos.r + 8}"/>` : ''}
     <circle class="map-disc" cx="${pos.x}" cy="${pos.y}" r="${pos.r}"/>
     <image href="${pieceUrl(filled ? 'b' : 'w', PIECE[skill.id])}" x="${pos.x - size / 2}" y="${pos.y - size / 2}" width="${size}" height="${size}" class="map-piece"/>
     ${badges.join('')}${label}
@@ -108,7 +109,7 @@ function drawNode(state, skill, pos, today, cls) {
 }
 
 /** SVG complet. `elo` vient de estimateElo. */
-export function skillMap(state, today, elo) {
+export function skillMap(state, today, elo, recommended = new Set()) {
   const positions = layoutSkills();
   const paths = [];
   const nodes = [];
@@ -133,7 +134,7 @@ export function skillMap(state, today, elo) {
         const started = reached && (skill.requires.length > 0 || skillData(state, skill.id).passes.length > 0 || skillData(state, skill.id).validatedDay);
         paths.push(`<path class="map-edge ${started ? 'lit' : ''} ${hub.cls}" d="${curve(pos, to)}"/>`);
       }
-      nodes.push(drawNode(state, skill, to, today, hub.cls));
+      nodes.push(drawNode(state, skill, to, today, hub.cls, recommended));
     }
 
     const textX = hub.x + hub.side * 48;

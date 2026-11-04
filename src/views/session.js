@@ -213,7 +213,8 @@ export function renderSkillSession(app, id) {
   }
   const isReview = status === 'decayed' || status === 'validated';
   const size = isReview ? REVIEW_SIZE : SESSION_SIZE;
-  const band = nextBand(state, skill);
+  // Un joueur placé au-dessus de ce niveau passe directement aux exercices difficiles.
+  const band = Math.max(nextBand(state, skill), (state.placementTier ?? 0) > skill.tier ? 1 : 0);
 
   app.innerHTML = `
     <p class="crumb"><a href="#/competence/${id}">← ${esc(skill.name)}</a></p>

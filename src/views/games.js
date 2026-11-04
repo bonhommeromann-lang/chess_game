@@ -11,7 +11,7 @@ import { esc } from './ui.js';
 
 const OUTCOME = { win: 'Victoire', loss: 'Défaite', draw: 'Nulle', unknown: '—' };
 
-const bestSan = (fen, uci) => {
+export const bestSan = (fen, uci) => {
   if (!uci) return '';
   try {
     return new Chess(fen).move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] }).san;

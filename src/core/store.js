@@ -10,6 +10,8 @@ export const emptyState = () => ({
   games: [],    // parties réelles importées et analysées
   badges: {},   // id -> { day, gameId }
   elo: { rating: 1000, attempts: 0 }, // estimation d'après les exercices classés
+  placementTier: 0, // niveaux ouverts d'emblée d'après l'Élo
+  planUnlocked: {}, // compétences ouvertes par le plan d'entraînement
   daily: {},    // jour -> { tactics, boss, story, done }
   log: [],      // { day, type: 'gain'|'loss', id, reason }
   settings: { username: '', platform: null, onboarded: false },

@@ -219,6 +219,22 @@ export function exploitsPin(after, move) {
   return false;
 }
 
+/**
+ * Sacrifice : la pièce jouée (hors pion) peut être prise avec perte de matériel, soit parce qu'elle
+ * n'est pas défendue, soit parce que l'adversaire la prend avec une pièce de moindre valeur.
+ */
+export function isSacrifice(after, move) {
+  if (move.piece === 'p') return false;
+  const them = move.color === 'w' ? 'b' : 'w';
+  const attackers = after.moves({ verbose: true }).filter((m) => m.to === move.to && m.captured);
+  if (!attackers.length) return false;
+  const gained = VALUE[move.captured] ?? 0;
+  if (VALUE[move.piece] <= gained) return false;
+  const defended = after.isAttacked(move.to, move.color);
+  const cheapest = Math.min(...attackers.map((m) => VALUE[m.piece]));
+  return them === after.turn() && (!defended || cheapest < VALUE[move.piece]);
+}
+
 /** Applique un coup UCI et renvoie { after, move } sans modifier la position d'origine. */
 export function playUci(fen, uci) {
   const game = new Chess(fen, { skipValidation: true });

@@ -26,6 +26,7 @@ réimporter.
 | **Boss** | Le Gardien, Le Mur, L'Opposition, Lucena, Philidor. Leçon guidée, position aléatoire, 3 vies arbitrées par les tables de finales, revanche plus difficile après 7 jours. |
 | **Histoire** | 8 parties célèbres, classées par époque, thème ou joueur. Barème 3/2/1/0 calculé par Stockfish, idée expliquée après chaque coup, annonce du plan. |
 | **Compte** | À l'arrivée, le joueur donne son pseudo Chess.com ou Lichess (jamais de mot de passe). Ses 20 dernières parties classées sont analysées en arrière-plan, et la synchro reprend à chaque visite. |
+| **Plan** | Les 3 compétences qui reviennent le plus dans les erreurs récentes, avec un exemple tiré des parties. L'Élo ouvre les niveaux adaptés (2 dès 1000, 3 dès 1500) et le plan ouvre ce qu'il recommande. Ouvrir n'est pas valider : seuls les exercices et les boss valident. |
 | **Parties** | Analyse par Stockfish, erreurs reliées aux compétences, badges gagnés en conditions réelles. Un PGN peut aussi être collé. |
 | **Progrès** | Bilan mensuel, courbe de classement et règle de contrôle (les récompenses se retrouvent-elles dans les parties ?). |
 | **Aujourd'hui** | Arbre lumineux qui reflète le niveau, quêtes quotidiennes et série (un jour manqué toléré par semaine). |

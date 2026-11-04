@@ -1,11 +1,13 @@
 // Accueil : l'arbre du joueur, ses quêtes du jour et sa série.
-import { dayKey } from '../core/time.js';
+import { dayKey, formatDay } from '../core/time.js';
 import { estimateElo } from '../core/elo.js';
 import { loadState } from '../core/store.js';
 import { branchLevel, levelName, rematchInfo, skillStatus } from '../core/mastery.js';
+import { buildPlan, trainingHref } from '../core/plan.js';
 import { dailyEntry, streakInfo, STORY_GOAL, TACTICS_GOAL } from '../core/quests.js';
 import { BRANCHES, SKILLS, skillsOfBranch, skillById } from '../data/skills.js';
 import { BOSSES } from '../data/bosses.js';
+import { bestSan } from './games.js';
 import { skillMap } from './skillmap.js';
 import { renderWelcome } from './welcome.js';
 import { syncStatus } from '../sync.js';
@@ -25,6 +27,8 @@ export function practiceTask(state, today) {
       kind: 'revision',
     };
   }
+  const [top] = buildPlan(state, SKILLS, today);
+  if (top) return { title: `Recommandé : ${top.def.name}`, href: trainingHref(top.def), kind: 'plan' };
   const boss = BOSSES.find((b) => ['available', 'progress'].includes(skillStatus(state, skillById(b.skill), today)));
   if (boss) return { title: `Combat : ${boss.name}`, href: `#/boss/${boss.id}`, kind: 'boss' };
   const next = SKILLS.find((s) => !s.boss && ['available', 'progress'].includes(skillStatus(state, s, today)));
@@ -38,6 +42,44 @@ function questRow(label, detail, done, href) {
     <span class="quest-text"><strong>${esc(label)}</strong><small>${esc(detail)}</small></span>
     ${done ? '<span class="tag good">Fait</span>' : `<a class="btn small primary" href="${href}">Jouer</a>`}
   </li>`;
+}
+
+function planSection(state, today) {
+  const plan = buildPlan(state, SKILLS, today);
+  const status = syncStatus();
+  let body;
+  if (plan.length) {
+    body = `<ol class="plan">${plan.map((item, i) => {
+      const { example } = item;
+      const best = bestSan(example.fen, example.best);
+      return `<li class="plan-item" data-plan="${item.id}">
+        <span class="plan-rank" aria-hidden="true">${i + 1}</span>
+        <div class="plan-text">
+          <h3>${esc(item.def.name)}</h3>
+          <p class="muted">${item.recurring
+            ? `Revient dans ${item.gameCount} de tes ${item.analysed} dernières parties.`
+            : `Repérée dans une partie sur ${item.analysed} : à confirmer.`}</p>
+          <p class="plan-example">Par exemple, le ${formatDay(example.date)} : ${esc(example.san)} au coup ${example.moveNumber}${best ? `, alors que ${esc(best)} était meilleur` : ''}.</p>
+        </div>
+        <a class="btn ${i === 0 ? 'primary' : ''}" href="${trainingHref(item.def)}">S’entraîner</a>
+      </li>`;
+    }).join('')}</ol>`;
+  } else if (status.running) {
+    body = '<p class="muted">Ton plan se construit à mesure que tes parties sont analysées.</p>';
+  } else if (state.games.length) {
+    body = '<p class="muted">Aucune erreur à travailler dans tes parties récentes. Continue tes quêtes pour garder le rythme.</p>';
+  } else {
+    body = `<p class="muted">Lie ton compte pour obtenir un plan basé sur tes vraies parties.</p>
+      <a class="btn primary" href="#/parties">Lier un compte</a>`;
+  }
+  const open = state.placementTier ?? 0;
+  return `<section class="panel plan-panel">
+    <div class="panel-head">
+      <h2>Ton plan d’entraînement</h2>
+      ${open ? `<span class="muted">Niveaux 1${open >= 3 ? ', 2 et 3' : ' et 2'} ouverts d’après ton Élo</span>` : ''}
+    </div>
+    ${body}
+  </section>`;
 }
 
 function syncBanner() {
@@ -72,13 +114,14 @@ export function renderHome(app) {
           <p class="muted">${validated} compétence${validated > 1 ? 's' : ''} validée${validated > 1 ? 's' : ''} sur ${SKILLS.length} : il s’illumine à mesure que tu progresses.</p>
         </div>
         <ul class="map-legend" aria-label="Légende">
+          <li><i class="k-reco"></i>Recommandée</li>
           <li><i class="k-validated"></i>Validée</li>
           <li><i class="k-available"></i>Disponible</li>
           <li><i class="k-decayed"></i>À réviser</li>
           <li><i class="k-locked"></i>Verrouillée</li>
         </ul>
       </header>
-      ${skillMap(state, today, elo)}
+      ${skillMap(state, today, elo, new Set(buildPlan(state, SKILLS, today).map((i) => i.id)))}
       <div class="profile-mobile">
         ${BRANCHES.map((b) => {
           const score = branchLevel(state, skillsOfBranch(b.id), today);
@@ -90,6 +133,8 @@ export function renderHome(app) {
         }).join('')}
       </div>
     </section>
+
+    ${planSection(state, today)}
 
     <div class="home-columns">
       <section class="panel">

@@ -3,7 +3,8 @@
 import { dayKey } from './core/time.js';
 import { loadState, saveState } from './core/store.js';
 import { recordRealError } from './core/mastery.js';
-import { skillById } from './data/skills.js';
+import { refreshPlacement } from './core/plan.js';
+import { SKILLS, skillById } from './data/skills.js';
 import {
   analyseGame, badgesFromGame, fetchChessComGames, fetchLichessGames, parseGame, playerColor,
 } from './analysis.js';
@@ -49,6 +50,7 @@ export function applyRecord(state, record, today) {
   for (const badge of badgesFromGame(record)) {
     state.badges[badge] ??= { day: record.date, gameId: record.id };
   }
+  refreshPlacement(state, SKILLS, today);
 }
 
 /** Le bullet reflète surtout la gestion du temps : on l'écarte, sauf s'il n'y a que ça. */
@@ -130,6 +132,9 @@ export function unlinkAccount() {
   state.games = [];
   state.badges = {};
   for (const skill of Object.values(state.skills)) skill.realErrors = [];
+  // Ces ouvertures venaient des parties du compte précédent.
+  state.placementTier = 0;
+  state.planUnlocked = {};
   state.settings = { ...state.settings, platform: null, username: '', onboarded: false };
   saveState();
 }

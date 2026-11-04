@@ -1,7 +1,7 @@
 // Analyse des parties réelles : détection des erreurs, lien avec les compétences, badges.
 import { Chess } from '../vendor/chess.js';
 import { analyse, MATE_SCORE } from './chess/engine.js';
-import { materialKey, detectFork, detectLineMotif, exploitsPin, playUci, winsHangingPiece } from './chess/detect.js';
+import { materialKey, detectFork, detectLineMotif, exploitsPin, isSacrifice, playUci, winsHangingPiece } from './chess/detect.js';
 import { moveOutcome, pieceCount, positionOutcome, probe } from './chess/tablebase.js';
 import { cadenceOf, mainCadence } from './core/elo.js';
 
@@ -9,6 +9,8 @@ import { cadenceOf, mainCadence } from './core/elo.js';
 // l'analyse serveur Lichess, sur 12 parties, 98 % des coups signalés sont de vraies erreurs et 74 %
 // des gaffes sont trouvées. À profondeur 14 avec 150 centipions, seuls 59 % étaient justes.
 export const WIN_DROP_THRESHOLD = 15;
+// Un coup suspect est réexaminé plus loin : un sacrifice profond paraît souvent mauvais au premier abord.
+export const CONFIRM_DEPTH_BONUS = 4;
 const CLAMP = 2000;
 const clamp = (x) => Math.max(-CLAMP, Math.min(CLAMP, x));
 
@@ -165,7 +167,7 @@ export function classifyError({ fen, played, best, reply, plyIndex, color, bestL
 
   if ((bestLine?.length ?? 0) >= 5 && best) {
     const { after, move } = playUci(fen, best);
-    if (after.isAttacked(move.to, after.turn())) return 'combinaisons';
+    if (isSacrifice(after, move)) return 'combinaisons';
   }
   return plyIndex < 20 ? 'principes' : null;
 }
@@ -262,7 +264,13 @@ export async function analyseGame(parsed, color, today, { depth = 16, onProgress
       if (motif && motif !== 'mat-en-1' && motif !== 'pieces-en-prise') playedMotifs.add(motif);
     }
 
-    let isError = isErrorMove(scoreBefore, scoreAfter);
+    // Le coup préféré du moteur ne peut pas être une erreur, quelles que soient les variations de note.
+    let isError = uci !== before.best && isErrorMove(scoreBefore, scoreAfter);
+    if (isError) {
+      const deepBefore = await analyse(move.before, depth + CONFIRM_DEPTH_BONUS);
+      const deepAfter = await analyse(move.after, depth + CONFIRM_DEPTH_BONUS);
+      isError = uci !== deepBefore.best && isErrorMove(deepBefore.score, -deepAfter.score);
+    }
     // En finale peu chargée, la table de finales tranche à la place de l'évaluation du moteur.
     if (pieceCount(move.before) <= 5) {
       try {

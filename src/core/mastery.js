@@ -27,7 +27,9 @@ function ensure(state, id) {
   return state.skills[id];
 }
 
+/** Ouverte par ses prérequis, par le niveau du joueur, ou parce que ses parties la recommandent. */
 export function isUnlocked(state, def) {
+  if ((state.placementTier ?? 0) >= def.tier || state.planUnlocked?.[def.id]) return true;
   return def.requires.every((req) => skillData(state, req).validatedDay);
 }
 

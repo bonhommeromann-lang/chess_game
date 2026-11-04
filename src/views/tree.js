@@ -4,25 +4,27 @@ import { loadState } from '../core/store.js';
 import {
   branchLevel, canEarnToday, decayReason, isFlagged, levelName, rematchInfo, skillData, skillStatus,
 } from '../core/mastery.js';
-import { BRANCHES, skillById, skillsOfBranch } from '../data/skills.js';
+import { buildPlan } from '../core/plan.js';
+import { BRANCHES, SKILLS, skillById, skillsOfBranch } from '../data/skills.js';
 import { DECAY_REASON, esc, pct, STATUS_LABEL, statusIcon } from './ui.js';
 
 const TIER_NAMES = { 1: 'Niveau 1', 2: 'Niveau 2', 3: 'Niveau 3' };
 
-function node(state, skill, today) {
+function node(state, skill, today, recommended) {
   const status = skillStatus(state, skill, today);
   const flagged = isFlagged(state, skill, today) && status !== 'decayed';
   const body = `
     <span class="node-icon">${statusIcon(status)}</span>
     <span class="node-text"><strong>${esc(skill.name)}</strong>
     <small>${STATUS_LABEL[status]}${skill.boss ? ' · Boss' : ''}</small></span>
-    ${flagged ? '<span class="flag" title="Erreur repérée dans tes parties">Signalée</span>' : ''}`;
+    ${recommended.has(skill.id) ? '<span class="reco">Recommandée</span>' : flagged ? '<span class="flag" title="Erreur repérée dans tes parties">Signalée</span>' : ''}`;
   return `<a class="node ${status}" href="#/competence/${skill.id}" data-skill="${skill.id}">${body}</a>`;
 }
 
 export function renderTree(app) {
   const state = loadState();
   const today = dayKey();
+  const recommended = new Set(buildPlan(state, SKILLS, today).map((i) => i.id));
   app.innerHTML = `
     <section class="page-head">
       <h1>Arbre de compétences</h1>
@@ -41,7 +43,7 @@ export function renderTree(app) {
           </header>
           ${[1, 2, 3].map((tier) => `
             <h3 class="tier-label">${TIER_NAMES[tier]}</h3>
-            <div class="tier">${skills.filter((s) => s.tier === tier).map((s) => node(state, s, today)).join('')}</div>
+            <div class="tier">${skills.filter((s) => s.tier === tier).map((s) => node(state, s, today, recommended)).join('')}</div>
           `).join('')}
         </section>`;
       }).join('')}

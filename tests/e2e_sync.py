@@ -164,6 +164,38 @@ try:
         page.wait_for_selector(".skill-map")
         ok("sans compte : accueil accessible", True)
 
+        # Plan d'entraînement à partir de parties analysées
+        day = time.strftime("%Y-%m-%d")
+        start = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+        error = lambda skill: {"skill": skill, "san": "a3", "moveNumber": 9, "fen": start, "best": "e2e4", "ply": 16, "loss": 300}
+        record = lambda gid, errors: {"id": gid, "white": "Moi", "black": "Autre", "color": "w", "outcome": "loss", "rating": 1100,
+                                      "date": day, "site": "", "timeClass": "rapid", "myMoves": 30, "errors": errors,
+                                      "playedMotifs": [], "lowestEval": 0, "rookEndingEqualish": False, "finalMaterial": "KvK"}
+        seed = {"version": 1, "skills": {}, "seen": {}, "bosses": {}, "story": {}, "badges": {}, "daily": {}, "log": [],
+                "games": [record("a", [error("fourchette")]), record("b", [error("fourchette"), error("lucena")])],
+                "settings": {"username": "", "platform": None, "onboarded": True}}
+        ctx3 = browser.new_context(viewport={"width": 1280, "height": 900})
+        pp = ctx3.new_page()
+        pp.on("pageerror", lambda e: js_errors.append(str(e)))
+        pp.goto(BASE)
+        pp.evaluate("s => localStorage.setItem('quete-echecs.v1', s)", json.dumps(seed))
+        pp.reload()
+        pp.wait_for_selector(".plan-item")
+        ok("plan : priorités dans l'ordre", pp.locator(".plan-item").first.get_attribute("data-plan") == "fourchette")
+        ok("plan : exemple réel affiché", "e4" in pp.locator(".plan-item").first.inner_text() and "coup 9" in pp.locator(".plan-item").first.inner_text())
+        ok("plan : récurrence annoncée", "2 de tes 2" in pp.locator(".plan-item").first.inner_text())
+        ok("plan : Fourchette marquée sur la carte", pp.locator('.map-node[data-skill="fourchette"] .map-reco').count() == 1)
+        ok("placement : niveau 2 ouvert par l'Élo", "locked" not in pp.get_attribute('.map-node[data-skill="clouage"]', "class"))
+        ok("plan : Lucena ouverte par le plan", "locked" not in pp.get_attribute('.map-node[data-skill="lucena"]', "class"))
+        ok("placement : niveau 3 non recommandé reste fermé", "locked" in pp.get_attribute('.map-node[data-skill="deviation"]', "class"))
+        ok("plan : quête du jour alignée", "Recommandé : Fourchette" in pp.inner_text(".quests"))
+        pp.screenshot(path=SHOTS / "s-plan.png", full_page=True)
+        pp.locator('.plan-item[data-plan="fourchette"] a').click()
+        pp.wait_for_selector(".board .sq")
+        ok("plan : ouvre la séance, compétence verrouillée à l'origine", "Fourchette" in pp.inner_text("h1"))
+        pst = pp.evaluate("JSON.parse(localStorage.getItem('quete-echecs.v1'))")
+        ok("plan : rien n'est validé sans exercice", not pst["skills"].get("fourchette", {}).get("validatedDay"))
+
         # Plateforme indisponible : message clair, pas de plantage
         ctx2 = browser.new_context()
         pg = ctx2.new_page()

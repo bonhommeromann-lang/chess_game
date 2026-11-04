@@ -2,6 +2,7 @@
 import { dayKey } from './core/time.js';
 import { loadState, saveState } from './core/store.js';
 import { syncDecay } from './core/mastery.js';
+import { refreshPlacement } from './core/plan.js';
 import { SKILLS } from './data/skills.js';
 import { refreshElo, refreshSync } from './views/elobar.js';
 import { onSync, syncAccount } from './sync.js';
@@ -50,6 +51,7 @@ function navigate() {
   });
   const state = loadState();
   syncDecay(state, SKILLS, dayKey());
+  refreshPlacement(state, SKILLS, dayKey());
   saveState();
   refreshElo();
   refreshSync();

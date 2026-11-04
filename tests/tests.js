@@ -9,8 +9,9 @@ import {
 import { advanceQuest, streakInfo } from '../src/core/quests.js';
 import { estimateElo, recordRatedExercise, START_RATING } from '../src/core/elo.js';
 import { layoutSkills } from '../src/views/skillmap.js';
+import { buildPlan, placementFromElo, refreshPlacement, trainingHref } from '../src/core/plan.js';
 import {
-  bishopQuality, detectFork, detectLineMotif, doubledPawns, isolatedPawns, materialKey, openFiles,
+  bishopQuality, detectFork, detectLineMotif, doubledPawns, isolatedPawns, isSacrifice, materialKey, openFiles,
   passedPawns, playUci, semiOpenFiles, squareColor, weakSquares,
 } from '../src/chess/detect.js';
 import { moveOutcome, positionOutcome, probe } from '../src/chess/tablebase.js';
@@ -237,6 +238,24 @@ function complete2(s, day) {
   const onlyBullet = emptyState();
   onlyBullet.games = [{ date: '2026-01-01', rating: 900, timeClass: 'bullet' }];
   eq('Élo : le bullet sert s’il n’y a rien d’autre', estimateElo(onlyBullet).rating, 900);
+}
+
+// -- Sacrifices --------------------------------------------------------------------------------
+{
+  const sac = (fen, uci) => {
+    const { after, move } = playUci(fen, uci);
+    return isSacrifice(after, move);
+  };
+  check('sacrifice : fou donné en f7', sac('r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/8/PPPP1PPP/RNBQK1NR w KQkq - 0 1', 'c4f7'));
+  check('pas de sacrifice : poussée de pion défendue', !sac('r1bqkbnr/pp2pppp/2np4/2p5/2B1PP2/5N2/PPPP2PP/RNBQK2R b KQkq - 0 1', 'e7e6'));
+  check('pas de sacrifice : case non attaquée', !sac('4k3/8/8/8/8/8/8/R3K3 w - - 0 1', 'a1a7'));
+  check('pas de sacrifice : prise gagnante', !sac('4k3/8/3p4/4q3/8/8/8/4R1K1 w - - 0 1', 'e1e5'));
+  check('sacrifice : dame défendue prise par un pion', sac('4k3/8/3p4/R7/8/8/8/4Q1K1 w - - 0 1', 'e1e5'));
+  eq('combinaisons : plus de fourre-tout', classifyError({
+    fen: 'r1bqkbnr/pp2pppp/2np4/2p5/2B1PP2/5N2/PPPP2PP/RNBQK2R b KQkq - 0 1',
+    played: 'g7g6', best: 'e7e6', reply: 'c4f7', plyIndex: 30, color: 'b',
+    bestLine: ['e7e6', 'e1g1', 'g8f6', 'd2d3', 'f8e7'], replyLine: [],
+  }), null);
 }
 
 // -- Lien entre erreurs et compétences -------------------------------------------------------
@@ -483,6 +502,62 @@ for (const boss of BOSSES) {
   check('Élo : les parties pèsent le plus', Math.abs(estimateElo(real).rating - 1200) < Math.abs(real.elo.rating - 1200) / 2);
 }
 
+// -- Plan d'entraînement -----------------------------------------------------------------------
+{
+  const err = (skill, san = 'a3') => ({ skill, san, moveNumber: 12, fen: new Chess().fen(), best: 'e2e4' });
+  const game = (id, date, errors, rating = 1200) => ({ id, date, errors, rating, timeClass: 'rapid', myMoves: 30 });
+  const today = '2026-03-30';
+  const planned = emptyState();
+  planned.games = [
+    game('a', '2026-03-20', [err('clouage')]),
+    game('b', '2026-03-21', [err('fourchette'), err('fourchette'), err('fourchette')]),
+    game('c', '2026-03-22', [err('clouage'), err(null)]),
+    game('d', '2026-03-23', [err('lucena')]),
+    game('e', '2026-03-24', [err('enfilade')]),
+    game('vieux', '2025-01-01', [err('mat-en-1'), err('mat-en-1')]),
+  ];
+  const plan = buildPlan(planned, SKILLS, today);
+  eq('plan : le récurrent d’abord, pas le plus gros volume', plan.map((p) => p.id)[0], 'clouage');
+  eq('plan : limité à 3', plan.length, 3);
+  check('plan : récurrence annoncée', plan[0].recurring && plan[0].gameCount === 2);
+  check('plan : une seule partie reste à confirmer', !plan[1].recurring);
+  check('plan : ignore les vieilles parties', !plan.some((p) => p.id === 'mat-en-1'));
+  check('plan : ignore les erreurs sans compétence', plan.every((p) => p.def));
+  eq('plan : à égalité, le plus fondamental', plan[2].id, 'enfilade');
+
+  // S'entraîner traite les erreurs passées ; une nouvelle erreur revient au plan.
+  planned.skills.clouage = { passes: [{ day: '2026-03-25', score: 1, band: 0 }], validatedDay: null, lastPracticed: null, intervalDays: 21, decay: null, realErrors: [] };
+  check('plan : l’entraînement traite les erreurs passées', !buildPlan(planned, SKILLS, today).some((p) => p.id === 'clouage'));
+  planned.games.push(game('f', '2026-03-28', [err('clouage')]));
+  check('plan : une nouvelle erreur y revient', buildPlan(planned, SKILLS, today).some((p) => p.id === 'clouage'));
+  eq('plan : vide sans parties', buildPlan(emptyState(), SKILLS, today), []);
+
+  eq('placement : débutant', placementFromElo(900), 0);
+  eq('placement : niveau 2', placementFromElo(1000), 2);
+  eq('placement : niveau 3', placementFromElo(1500), 3);
+
+  const placed = emptyState();
+  const locked = skillById('deviation');
+  eq('sans placement : verrouillée', skillStatus(placed, locked, today), 'locked');
+  placed.games = [game('x', '2026-03-20', [], 1600)];
+  refreshPlacement(placed, SKILLS, today);
+  eq('placement : ouverte par l’Élo', skillStatus(placed, locked, today), 'available');
+  check('placement : ouvrir n’est pas valider', !placed.skills.deviation?.validatedDay);
+  eq('placement : aucun niveau de branche offert', branchLevel(placed, SKILLS, today), 0);
+  placed.games = [game('x', '2026-03-20', [], 800)];
+  refreshPlacement(placed, SKILLS, today);
+  eq('placement : ne se referme pas', skillStatus(placed, locked, today), 'available');
+
+  const weak = emptyState();
+  weak.games = [game('y', '2026-03-20', [err('lucena')], 700)];
+  eq('placement bas : verrouillée avant le plan', skillStatus(weak, skillById('lucena'), today), 'locked');
+  refreshPlacement(weak, SKILLS, today);
+  eq('plan : ouvre la compétence recommandée', skillStatus(weak, skillById('lucena'), today), 'available');
+  eq('plan : le reste suit l’arbre', skillStatus(weak, skillById('philidor'), today), 'locked');
+  eq('lien vers le boss', trainingHref(skillById('lucena')), '#/boss/lucena');
+  eq('lien vers la séance', trainingHref(skillById('fourchette')), '#/seance/fourchette');
+}
+
 // -- Carte des compétences -------------------------------------------------------------------
 {
   const pos = Object.values(layoutSkills());
@@ -548,6 +623,8 @@ for (const boss of BOSSES) {
   // Et une vraie gaffe reste détectée.
   const blunder = await analyseGame(parseGame('1. e4 e5 2. Qh5 Nc6 3. Qxf7+ Kxf7 *'), 'w', '2026-01-01');
   check('analyse : une dame donnée est une erreur', blunder.errors.some((e) => e.san === 'Qxf7+'));
+  const legend = await analyseGame(parseGame('1. e4 d6 2. d4 Nf6 3. Nc3 g6 4. Be3 Bg7 5. Qd2 c6 6. f3 b5 7. Nge2 Nbd7 8. Bh6 Bxh6 9. Qxh6 Bb7 10. a3 e5 11. O-O-O Qe7 12. Kb1 a6 13. Nc1 O-O-O 14. Nb3 exd4 15. Rxd4 c5 16. Rd1 Nb6 17. g3 Kb8 18. Na5 Ba8 19. Bh3 d5 20. Qf4+ Ka7 21. Rhe1 d4 22. Nd5 Nbxd5 23. exd5 Qd6 24. Rxd4 *'), 'w', '2026-01-01');
+  eq('analyse : le sacrifice de Kasparov n’est pas une erreur', legend.errors.filter((e) => e.san === 'Rxd4').length, 0);
 }
 
 out.innerHTML = `<span class="${failures.length ? 'fail' : 'pass'}">${passes} réussis, ${failures.length} échecs</span>\n${failures.map((f) => `ÉCHEC ${f}`).join('\n')}`;
