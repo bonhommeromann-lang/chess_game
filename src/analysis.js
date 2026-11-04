@@ -1,12 +1,25 @@
 // Analyse des parties réelles : détection des erreurs, lien avec les compétences, badges.
 import { Chess } from '../vendor/chess.js';
 import { analyse, MATE_SCORE } from './chess/engine.js';
-import { materialKey, detectFork, detectLineMotif, playUci, winsHangingPiece } from './chess/detect.js';
+import { materialKey, detectFork, detectLineMotif, exploitsPin, playUci, winsHangingPiece } from './chess/detect.js';
 import { moveOutcome, pieceCount, positionOutcome, probe } from './chess/tablebase.js';
+import { cadenceOf, mainCadence } from './core/elo.js';
 
-export const ERROR_THRESHOLD = 150;
+// Seuil et profondeur choisis par mesure (tests/eval_errors.py) : comparé aux annotations de
+// l'analyse serveur Lichess, sur 12 parties, 98 % des coups signalés sont de vraies erreurs et 74 %
+// des gaffes sont trouvées. À profondeur 14 avec 150 centipions, seuls 59 % étaient justes.
+export const WIN_DROP_THRESHOLD = 15;
 const CLAMP = 2000;
 const clamp = (x) => Math.max(-CLAMP, Math.min(CLAMP, x));
+
+/** Chances de gain, de 0 à 100, à partir d'une note en centipions. */
+export const winChance = (cp) => 50 + 50 * (2 / (1 + Math.exp(-0.00368208 * clamp(cp))) - 1);
+
+/**
+ * Un coup est une erreur s'il fait trop baisser les chances de gain. Perdre un pion compte donc
+ * dans une position équilibrée, mais pas quand la partie est déjà jouée d'un côté ou de l'autre.
+ */
+export const isErrorMove = (before, after) => winChance(before) - winChance(after) >= WIN_DROP_THRESHOLD;
 
 // ---------------------------------------------------------------------------------------------
 // Lecture des PGN
@@ -14,6 +27,17 @@ const clamp = (x) => Math.max(-CLAMP, Math.min(CLAMP, x));
 
 export function splitPgn(text) {
   return text.replace(/\r/g, '').split(/\n(?=\[Event )/).map((s) => s.trim()).filter(Boolean);
+}
+
+/** Cadence d'après l'en-tête TimeControl, avec la durée estimée d'une partie de 40 coups. */
+export function timeClassOf(timeControl) {
+  const match = /^(\d+)(?:\+(\d+))?$/.exec(timeControl ?? '');
+  if (!match) return timeControl?.includes('/') ? 'daily' : 'unknown';
+  const estimated = Number(match[1]) + 40 * Number(match[2] ?? 0);
+  if (estimated < 180) return 'bullet';
+  if (estimated < 480) return 'blitz';
+  if (estimated < 1500) return 'rapid';
+  return 'classical';
 }
 
 const hash = (s) => {
@@ -43,6 +67,7 @@ export function parseGame(pgn) {
     result: headers.Result ?? '*',
     date: /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : null,
     site: headers.Site ?? '',
+    timeClass: timeClassOf(headers.TimeControl),
     moves,
   };
 }
@@ -72,8 +97,37 @@ export function motifOfMove(fen, uci) {
   const line = detectLineMotif(after, move);
   if (line === 'pin') return 'clouage';
   if (line === 'skewer') return 'enfilade';
+  if (exploitsPin(after, move)) return 'clouage';
   if (winsHangingPiece(fen, uci)) return 'pieces-en-prise';
   return null;
+}
+
+/**
+ * Motif d'une variante (coups UCI alternés, le premier étant celui du camp étudié) : un motif peut
+ * n'apparaître qu'au 2e ou 3e coup. Un mat plus lointain relève des combinaisons, pas du mat en 1.
+ */
+export function motifOfLine(fen, line, maxOwnMoves = 3) {
+  const game = new Chess(fen, { skipValidation: true });
+  let fallback = null;
+  for (let i = 0; i < line.length && i < maxOwnMoves * 2; i += 1) {
+    if (i % 2 === 0) {
+      const motif = motifOfMove(game.fen(), line[i]);
+      if (motif === 'mat-en-1') {
+        if (i === 0) return motif;
+      } else if (motif === 'pieces-en-prise') {
+        // Plus loin dans la variante, toute prise ressemblerait à une pièce en prise.
+        if (i === 0) fallback = motif;
+      } else if (motif) {
+        return motif;
+      }
+    }
+    try {
+      game.move({ from: line[i].slice(0, 2), to: line[i].slice(2, 4), promotion: line[i][4] });
+    } catch {
+      break;
+    }
+  }
+  return fallback;
 }
 
 /** Compétence de finale correspondant au matériel, du point de vue de `color`. */
@@ -93,8 +147,9 @@ export function endgameSkill(fen, color) {
 /**
  * Identifie la compétence en cause pour une erreur.
  * best : coup que le moteur préférait. reply : meilleure réponse adverse au coup joué.
+ * bestLine, replyLine : variantes complètes du moteur, quand elles sont connues.
  */
-export function classifyError({ fen, played, best, reply, plyIndex, color, bestPvLength = 0 }) {
+export function classifyError({ fen, played, best, reply, plyIndex, color, bestLine, replyLine }) {
   if (gaveMate(fen, best)) return 'mat-en-1';
   const afterFen = playUci(fen, played).after.fen();
   if (gaveMate(afterFen, reply)) return 'mat-en-1';
@@ -102,13 +157,13 @@ export function classifyError({ fen, played, best, reply, plyIndex, color, bestP
   const ending = endgameSkill(fen, color);
   if (ending) return ending;
 
-  const missed = motifOfMove(fen, best);
+  const missed = motifOfLine(fen, bestLine?.length ? bestLine : [best].filter(Boolean));
   if (missed && missed !== 'pieces-en-prise') return missed;
-  const suffered = motifOfMove(afterFen, reply);
+  const suffered = motifOfLine(afterFen, replyLine?.length ? replyLine : [reply].filter(Boolean));
   if (suffered) return suffered;
   if (missed) return missed;
 
-  if (bestPvLength >= 5 && best) {
+  if ((bestLine?.length ?? 0) >= 5 && best) {
     const { after, move } = playUci(fen, best);
     if (after.isAttacked(move.to, after.turn())) return 'combinaisons';
   }
@@ -161,7 +216,7 @@ export const BADGES = {
  * Analyse une partie avec le moteur. onProgress(fait, total).
  * Retourne l'enregistrement conservé dans l'état du joueur.
  */
-export async function analyseGame(parsed, color, today, { depth = 14, onProgress, signal } = {}) {
+export async function analyseGame(parsed, color, today, { depth = 16, onProgress, signal } = {}) {
   const positions = [...parsed.moves.map((m) => m.before), parsed.moves.at(-1).after];
   const evals = [];
   for (let i = 0; i < positions.length; i += 1) {
@@ -207,7 +262,7 @@ export async function analyseGame(parsed, color, today, { depth = 14, onProgress
       if (motif && motif !== 'mat-en-1' && motif !== 'pieces-en-prise') playedMotifs.add(motif);
     }
 
-    let isError = loss >= ERROR_THRESHOLD && scoreBefore > -500 && !(scoreAfter > 500);
+    let isError = isErrorMove(scoreBefore, scoreAfter);
     // En finale peu chargée, la table de finales tranche à la place de l'évaluation du moteur.
     if (pieceCount(move.before) <= 5) {
       try {
@@ -230,7 +285,7 @@ export async function analyseGame(parsed, color, today, { depth = 14, onProgress
       loss: Math.round(loss),
       skill: classifyError({
         fen: move.before, played: uci, best: before.best, reply: after.best,
-        plyIndex: i, color, bestPvLength: before.pv.length,
+        plyIndex: i, color, bestLine: before.pv, replyLine: after.pv,
       }),
     });
   }
@@ -244,6 +299,7 @@ export async function analyseGame(parsed, color, today, { depth = 14, onProgress
     rating: color === 'w' ? parsed.whiteElo : parsed.blackElo,
     date: parsed.date ?? today,
     site: parsed.site,
+    timeClass: parsed.timeClass ?? 'unknown',
     myMoves,
     errors,
     playedMotifs: [...playedMotifs],
@@ -281,7 +337,7 @@ export async function fetchChessComGames(username, max) {
     if (!response.ok) throw new Error(`Chess.com a répondu ${response.status}.`);
     const { games = [] } = await response.json();
     // Les variantes (Chess960...) ne relèvent pas de l'entraînement.
-    out.push(...games.filter((g) => g.rules === 'chess' && g.pgn).map((g) => g.pgn).reverse());
+    out.push(...games.filter((g) => g.rules === 'chess' && g.rated && g.pgn).map((g) => g.pgn).reverse());
   }
   return out.slice(0, max);
 }
@@ -292,7 +348,9 @@ export function controlVerdict(state, today, windowDays = 30) {
   const games = state.games.filter((g) => since(g.date)).sort((a, b) => a.date.localeCompare(b.date));
   const rewards = state.log.filter((l) => l.type === 'gain' && since(l.day)).length +
     Object.values(state.badges).filter((b) => since(b.day)).length;
-  const rated = games.filter((g) => g.rating);
+  // Un classement ne se compare qu'à lui-même : rapide et blitz sont deux échelles distinctes.
+  const cadence = mainCadence(games);
+  const rated = games.filter((g) => g.rating && cadenceOf(g) === cadence);
   const ratingDelta = rated.length >= 2 ? rated.at(-1).rating - rated[0].rating : null;
 
   const half = Math.floor(games.length / 2);

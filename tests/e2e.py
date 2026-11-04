@@ -93,6 +93,7 @@ try:
 
         # --- Accueil
         page.goto(BASE)
+        page.click("[data-skip]")
         page.wait_for_selector(".quests")
         ok("accueil : 3 quêtes", page.locator(".quest").count() == 3)
         ok("accueil : 4 branches sur la carte", page.locator(".map-hub").count() == 4)
@@ -255,18 +256,15 @@ try:
 
         # --- Parties réelles : import PGN et analyse réelle
         page.goto(f"{BASE}/#/parties")
-        page.wait_for_selector("[data-form]")
-        page.fill('[name="username"]', "moi")
-        page.select_option('[name="source"]', "pgn")
+        page.wait_for_selector("[data-paste-box]")
+        page.click("[data-paste-box] summary")
+        page.fill('[data-paste] [name="username"]', "moi")
         page.fill('[name="pgn"]', PGN)
-        page.click("[data-run]")
+        page.click("[data-paste] button")
         page.wait_for_function(
-            "document.querySelector('[data-status]').textContent.includes('analysée')"
-            " || document.querySelector('[data-status]').className.includes('bad')",
-            timeout=180000,
+            "(JSON.parse(localStorage.getItem('quete-echecs.v1')).games ?? []).length === 1", timeout=180000
         )
-        status = page.inner_text("[data-status]")
-        ok("parties : analyse terminée", "analysée" in status, status)
+        page.wait_for_selector(".game-row")
         if page.locator(".game-row summary").count():
             page.locator(".game-row summary").first.click()
         page.screenshot(path=SHOTS / "16-parties.png", full_page=True)
@@ -288,6 +286,11 @@ try:
         # --- Téléphone
         phone = browser.new_context(viewport={"width": 375, "height": 720}, has_touch=True)
         mp = phone.new_page()
+        mp.goto(BASE)
+        mp.wait_for_selector("[data-welcome]")
+        ok("mobile : bienvenue sans débordement", not mp.evaluate("document.documentElement.scrollWidth > innerWidth"))
+        mp.screenshot(path=SHOTS / "18a-mobile-bienvenue.png", full_page=True)
+        mp.click("[data-skip]")
         mp.goto(f"{BASE}/#/seance/mat-en-1")
         mp.wait_for_selector(".board .sq")
         ok("mobile : pas de défilement horizontal", not mp.evaluate("document.documentElement.scrollWidth > innerWidth"))

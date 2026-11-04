@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Joue chaque boss contre la vraie table de finales, et vérifie les imports de plateformes.
+"""Joue chaque boss contre la vraie table de finales.
 
 Requiert le réseau, et : pip install playwright chess.
 Usage : python tests/e2e_boss.py [dossier_captures]
@@ -47,26 +47,8 @@ SEED = {
     "seen": {},
     "bosses": {b: {"tier": 0, "wins": 0, "lastWinDay": None, "attempts": 0, "lessonDone": True}
                for b in ("gardien", "mur", "opposition", "lucena", "philidor")},
-    "story": {}, "games": [], "badges": {}, "daily": {}, "log": [], "settings": {"username": ""},
+    "story": {}, "games": [], "badges": {}, "daily": {}, "log": [], "settings": {"username": "", "platform": None, "onboarded": True},
 }
-
-
-LICHESS_PGN = """[Event "rated rapid game"]
-[Site "https://lichess.org/game/test0001"]
-[Date "2026.10.22"]
-[White "thibault"]
-[Black "adversaire"]
-[Result "1-0"]
-[UTCDate "2026.10.22"]
-[UTCTime "10:00:00"]
-[WhiteElo "1800"]
-[BlackElo "1790"]
-[Variant "Standard"]
-[TimeControl "600+0"]
-[Termination "Normal"]
-
-1. e4 e5 2. Nf3 d6 3. d4 Bg4 4. dxe5 Bxf3 5. Qxf3 dxe5 6. Bc4 Nf6 7. Qb3 Qe7 8. Nc3 c6 9. Bg5 b5 10. Nxb5 cxb5 11. Bxb5+ Nbd7 12. O-O-O Rd8 13. Rxd7 Rxd7 14. Rd1 Qe6 15. Bxd7+ Nxd7 16. Qb8+ Nxb8 17. Rd8# 1-0
-"""
 
 
 def tablebase(fen):
@@ -213,28 +195,6 @@ try:
             page.wait_for_timeout(150)
         page.wait_for_selector(".result", timeout=10000)
         ok("trois vies perdues : défaite", "Défaite" in page.inner_text(".result"))
-
-        # Lichess refuse les navigateurs headless : sa réponse est simulée ici, au format réel.
-        page.route("https://lichess.org/api/games/user/**", lambda route: route.fulfill(
-            status=200, content_type="application/x-chess-pgn", body=LICHESS_PGN,
-            headers={"Access-Control-Allow-Origin": "*"},
-        ))
-        # Chess.com est appelé pour de vrai : lecture seule d'un compte public.
-        for source, user in [("lichess", "thibault"), ("chesscom", "hikaru")]:
-            page.goto(f"{BASE}/#/boss")
-            page.goto(f"{BASE}/#/parties")
-            page.wait_for_selector("[data-form]")
-            page.fill('[name="username"]', user)
-            page.select_option('[name="source"]', source)
-            page.fill('[name="count"]', "1")
-            page.click("[data-run]")
-            page.wait_for_function(
-                "document.querySelector('[data-status]').textContent.includes('analysée')"
-                " || document.querySelector('[data-status]').className.includes('bad')",
-                timeout=300000,
-            )
-            print(f"    import {source} :", page.inner_text("[data-status]"))
-            ok(f"import {source}", "analysée" in page.inner_text("[data-status]"), page.inner_text("[data-status]"))
 
         ok("aucune erreur JavaScript", not js_errors, str(js_errors[:5]))
         browser.close()

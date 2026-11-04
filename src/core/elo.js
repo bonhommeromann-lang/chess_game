@@ -20,13 +20,30 @@ export function recordRatedExercise(state, exerciseRating, correct) {
   state.elo = { rating, attempts: current.attempts + 1 };
 }
 
+export const CADENCE_NAMES = {
+  bullet: 'bullet', blitz: 'blitz', rapid: 'rapide', classical: 'classique', daily: 'par correspondance',
+};
+
+export const cadenceOf = (game) => game.timeClass ?? 'unknown';
+
+/** Cadence la plus jouée parmi les parties classées récentes, le bullet ne comptant qu'en dernier recours. */
+export function mainCadence(games) {
+  const recent = games.filter((g) => g.rating).sort((a, b) => a.date.localeCompare(b.date)).slice(-20);
+  const counts = {};
+  for (const game of recent) counts[cadenceOf(game)] = (counts[cadenceOf(game)] ?? 0) + 1;
+  const ranked = Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([cadence]) => cadence);
+  return ranked.find((c) => c !== 'bullet') ?? ranked[0] ?? null;
+}
+
 function recentGamesRating(state) {
-  const rated = (state.games ?? [])
-    .filter((g) => g.rating)
+  const games = state.games ?? [];
+  const cadence = mainCadence(games);
+  const rated = games
+    .filter((g) => g.rating && cadenceOf(g) === cadence)
     .sort((a, b) => a.date.localeCompare(b.date))
     .slice(-RECENT_GAMES);
   if (!rated.length) return null;
-  return { rating: rated.reduce((sum, g) => sum + g.rating, 0) / rated.length, count: rated.length };
+  return { rating: rated.reduce((sum, g) => sum + g.rating, 0) / rated.length, count: rated.length, cadence };
 }
 
 export function eloTitle(rating) {
@@ -60,7 +77,10 @@ export function estimateElo(state) {
     };
   }
   const parts = [];
-  if (games) parts.push(`${games.count} partie${games.count > 1 ? 's' : ''} réelle${games.count > 1 ? 's' : ''}`);
+  if (games) {
+    const name = CADENCE_NAMES[games.cadence];
+    parts.push(`${games.count} partie${games.count > 1 ? 's' : ''}${name ? ` en ${name}` : ''}`);
+  }
   if (exercises !== null) parts.push(`${attempts} exercices`);
   return {
     rating: Math.round(rating),

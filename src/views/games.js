@@ -1,14 +1,12 @@
-// Parties réelles : import, analyse, et lien avec l'arbre de compétences.
+// Parties réelles : compte lié, parties analysées, import manuel et sauvegarde.
 import { Chess } from '../../vendor/chess.js';
 import { dayKey, formatDay } from '../core/time.js';
 import { exportState, importState, loadState, resetState, saveState } from '../core/store.js';
-import { recordRealError } from '../core/mastery.js';
 import { skillById } from '../data/skills.js';
+import { splitPgn } from '../analysis.js';
 import {
-  analyseGame, badgesFromGame, fetchChessComGames, fetchLichessGames, parseGame, playerColor,
-  splitPgn,
-} from '../analysis.js';
-import { refreshElo } from './elobar.js';
+  analysePastedGames, PLATFORMS, syncAccount, syncStatus, unlinkAccount,
+} from '../sync.js';
 import { esc } from './ui.js';
 
 const OUTCOME = { win: 'Victoire', loss: 'Défaite', draw: 'Nulle', unknown: '—' };
@@ -40,54 +38,59 @@ function gameRow(game) {
   </details>`;
 }
 
+function accountSection(state) {
+  const { username, platform } = state.settings;
+  const status = syncStatus();
+  const linked = username && PLATFORMS[platform];
+  let line = '';
+  if (status.running) line = `<p class="feedback" role="status">Analyse en cours${status.total ? ` : ${status.done} sur ${status.total}` : '…'}. Tu peux changer de page, elle continue.</p>`;
+  else if (status.error) line = `<p class="feedback bad" role="status">${esc(status.error)}</p>`;
+  else if (status.message) line = `<p class="feedback" role="status">${esc(status.message)}</p>`;
+  return `<section class="panel">
+    <h2>Ton compte</h2>
+    ${linked ? `<div class="account">
+      <strong>${esc(username)}</strong> <span class="muted">${esc(PLATFORMS[platform].name)}</span>
+      <p class="actions">
+        <button class="btn small" data-sync-now ${status.running ? 'disabled' : ''}>Synchroniser</button>
+        <button class="btn small" data-unlink ${status.running ? 'disabled' : ''}>Changer de compte</button>
+      </p>
+    </div>` : `<p class="muted">Aucun compte lié : tes parties ne sont pas analysées automatiquement.</p>
+      <button class="btn primary" data-link>Lier un compte</button>`}
+    ${line}
+  </section>`;
+}
+
 export function renderGames(app) {
   const state = loadState();
   const today = dayKey();
-  let active = true;
-  const controller = new AbortController();
-
-  const render = () => {
-    const games = [...state.games].sort((a, b) => b.date.localeCompare(a.date));
-    app.querySelector('[data-list]').innerHTML = games.length
-      ? games.map(gameRow).join('')
-      : '<p class="muted">Aucune partie analysée pour l’instant. C’est pourtant là que tout se vérifie.</p>';
-  };
+  const games = [...state.games].sort((a, b) => b.date.localeCompare(a.date));
 
   app.innerHTML = `
     <section class="page-head">
       <h1>Tes parties réelles</h1>
-      <p class="lead">Importe tes parties : le moteur y cherche tes erreurs et signale les compétences concernées, même déjà validées.</p>
+      <p class="lead">Le moteur y cherche tes erreurs et signale les compétences concernées, même déjà validées.</p>
     </section>
-    <section class="panel">
-      <h2>Importer</h2>
-      <form data-form class="form">
-        <label>Ton pseudo
-          <input name="username" required autocomplete="off" value="${esc(state.settings.username)}" placeholder="pseudo sur la plateforme">
-        </label>
-        <div class="form-row">
-          <label>Source
-            <select name="source">
-              <option value="lichess">Lichess</option>
-              <option value="chesscom">Chess.com</option>
-              <option value="pgn">Coller un PGN</option>
-            </select>
-          </label>
-          <label>Nombre de parties
-            <input name="count" type="number" min="1" max="30" value="5">
-          </label>
-        </div>
-        <label data-pgn-box hidden>PGN
-          <textarea name="pgn" rows="6" placeholder="[Event &quot;…&quot;]"></textarea>
-        </label>
-        <button class="btn primary" data-run>Importer et analyser</button>
-        <p class="muted">Compte quelques minutes par partie : l’analyse tourne dans ton navigateur.</p>
-      </form>
-      <p class="feedback" data-status role="status" aria-live="polite"></p>
-      <div class="bar" data-bar hidden><i></i></div>
-    </section>
+    ${accountSection(state)}
     <section class="panel">
       <h2>Parties analysées</h2>
-      <div data-list></div>
+      <div data-list>${games.length
+        ? games.map(gameRow).join('')
+        : '<p class="muted">Aucune partie analysée pour l’instant. C’est pourtant là que tout se vérifie.</p>'}</div>
+    </section>
+    <section class="panel">
+      <details data-paste-box>
+        <summary><strong>Coller un PGN</strong> <span class="muted">pour une partie jouée ailleurs</span></summary>
+        <form data-paste class="form">
+          <label>Ton nom dans cette partie
+            <input name="username" required autocomplete="off" value="${esc(state.settings.username)}">
+          </label>
+          <label>PGN
+            <textarea name="pgn" rows="6" required placeholder="[Event &quot;…&quot;]"></textarea>
+          </label>
+          <button class="btn primary">Analyser</button>
+          <p class="feedback" data-paste-status role="status"></p>
+        </form>
+      </details>
     </section>
     <section class="panel">
       <h2>Sauvegarde</h2>
@@ -100,82 +103,30 @@ export function renderGames(app) {
       <p class="feedback" data-save-status role="status"></p>
     </section>`;
 
-  render();
-  const form = app.querySelector('[data-form]');
-  const status = app.querySelector('[data-status]');
-  const bar = app.querySelector('[data-bar]');
-  const say = (text, kind = '') => {
-    status.className = `feedback ${kind}`;
-    status.textContent = text;
-  };
-
-  form.source.onchange = () => {
-    app.querySelector('[data-pgn-box]').hidden = form.source.value !== 'pgn';
-    form.pgn.required = form.source.value === 'pgn';
-  };
-
-  form.onsubmit = async (event) => {
-    event.preventDefault();
-    const button = form.querySelector('[data-run]');
-    const username = form.username.value.trim();
-    state.settings.username = username;
+  const backToWelcome = () => { location.hash = '#/'; };
+  app.querySelector('[data-sync-now]')?.addEventListener('click', () => syncAccount());
+  app.querySelector('[data-link]')?.addEventListener('click', () => {
+    state.settings.onboarded = false;
     saveState();
-    button.disabled = true;
+    backToWelcome();
+  });
+  app.querySelector('[data-unlink]')?.addEventListener('click', () => {
+    // eslint-disable-next-line no-alert
+    if (window.confirm('Changer de compte retire les parties analysées et leurs badges. Tes compétences validées sont conservées. Continuer ?')) {
+      unlinkAccount();
+      backToWelcome();
+    }
+  });
+
+  const paste = app.querySelector('[data-paste]');
+  const pasteStatus = app.querySelector('[data-paste-status]');
+  paste.onsubmit = async (event) => {
+    event.preventDefault();
     try {
-      say('Récupération des parties…');
-      const count = Math.max(1, Math.min(30, Number(form.count.value) || 5));
-      let pgns;
-      if (form.source.value === 'lichess') pgns = await fetchLichessGames(username, count);
-      else if (form.source.value === 'chesscom') pgns = await fetchChessComGames(username, count);
-      else pgns = splitPgn(form.pgn.value);
-
-      const known = new Set(state.games.map((g) => g.id));
-      const parsed = pgns.map(parseGame).filter(Boolean);
-      const mine = parsed.filter((g) => playerColor(g, username));
-      const fresh = mine.filter((g) => !known.has(g.id));
-      if (!parsed.length) throw new Error('Aucune partie lisible trouvée.');
-      if (!mine.length) throw new Error(`« ${username} » ne figure dans aucune de ces parties. Vérifie le pseudo.`);
-      if (!fresh.length) {
-        say('Ces parties sont déjà analysées.');
-        return;
-      }
-
-      bar.hidden = false;
-      let totalErrors = 0;
-      for (let i = 0; i < fresh.length; i += 1) {
-        const parsedGame = fresh[i];
-        const record = await analyseGame(parsedGame, playerColor(parsedGame, username), today, {
-          signal: controller.signal,
-          onProgress: (done, total) => {
-            bar.querySelector('i').style.width = `${((i + done / total) / fresh.length) * 100}%`;
-            say(`Analyse de la partie ${i + 1} sur ${fresh.length}…`);
-          },
-        });
-        state.games.push(record);
-        totalErrors += record.errors.length;
-        for (const error of record.errors) {
-          const def = error.skill && skillById(error.skill);
-          if (def) recordRealError(state, def, record.id, record.date, today);
-        }
-        for (const badge of badgesFromGame(record)) {
-          if (!state.badges[badge]) {
-            state.badges[badge] = { day: record.date, gameId: record.id };
-          }
-        }
-        saveState();
-        refreshElo();
-        if (active) render();
-      }
-      say(`${fresh.length} partie${fresh.length > 1 ? 's' : ''} analysée${fresh.length > 1 ? 's' : ''}, ${totalErrors} erreur${totalErrors > 1 ? 's' : ''} repérée${totalErrors > 1 ? 's' : ''}. Voir l’arbre pour les compétences signalées.`, 'good');
+      await analysePastedGames(splitPgn(paste.pgn.value), paste.username.value.trim());
     } catch (err) {
-      if (err.name === 'AbortError') return;
-      const blocked = err instanceof TypeError;
-      say(blocked ? 'La plateforme n’est pas joignable depuis le navigateur. Essaie en collant un PGN.' : err.message, 'bad');
-    } finally {
-      if (active) {
-        button.disabled = false;
-        bar.hidden = true;
-      }
+      pasteStatus.className = 'feedback bad';
+      pasteStatus.textContent = err.message;
     }
   };
 
@@ -204,10 +155,5 @@ export function renderGames(app) {
       location.hash = '#/';
       location.reload();
     }
-  };
-
-  return () => {
-    active = false;
-    controller.abort();
   };
 }

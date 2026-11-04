@@ -52,7 +52,7 @@ body { display: grid; grid-template-columns: 196px minmax(0, 1fr); min-height: 1
 .sidebar nav a:hover { background: var(--panel); color: #fff; }
 .sidebar nav a[aria-current] { background: var(--panel-2); color: #fff; box-shadow: inset 3px 0 0 var(--accent); }
 .content { min-width: 0; }
-.topbar { display: flex; justify-content: flex-end; padding: .55rem 1.25rem; background: #1f1e1c; border-bottom: 1px solid #1a1917; position: sticky; top: 0; z-index: 5; }
+.topbar { display: flex; justify-content: flex-end; align-items: center; gap: 1.25rem; padding: .55rem 1.25rem; background: #1f1e1c; border-bottom: 1px solid #1a1917; position: sticky; top: 0; z-index: 5; }
 .elo { display: grid; grid-template-columns: auto auto; column-gap: .75rem; align-items: center; cursor: help; }
 .elo-label { grid-row: 1; font-size: .72rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); text-align: right; }
 .elo-title { grid-row: 2; grid-column: 1; font-size: .85rem; font-weight: 600; text-align: right; color: var(--good); }
@@ -358,3 +358,26 @@ input, select, textarea { font: 400 1rem var(--sans); color: var(--text); backgr
   .map-legend { display: none; }
   .home-columns { grid-template-columns: 1fr; }
 }
+
+/* Accueil du premier passage */
+.welcome { max-width: 460px; margin: 6vh auto 0; text-align: center; display: grid; gap: .8rem; justify-items: center; }
+.welcome .lead { margin: 0; }
+.welcome .form { width: 100%; text-align: left; max-width: none; }
+.platforms { border: 0; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
+.platforms legend { font-size: .9rem; font-weight: 600; margin-bottom: .25rem; padding: 0; }
+.platforms label { display: block; font-weight: 700; cursor: pointer; }
+.platforms input { position: absolute; opacity: 0; width: 1px; }
+.platforms span { display: block; padding: .6rem; text-align: center; border-radius: 6px; background: var(--panel-2); border: 2px solid transparent; }
+.platforms input:checked + span { border-color: var(--accent); background: var(--good-bg); }
+.platforms input:focus-visible + span { outline: 3px solid #4aa3ff; outline-offset: 2px; }
+.btn.big { padding: .8rem 1rem; font-size: 1.1rem; width: 100%; }
+.small-print { font-size: .86rem; margin: 0; }
+.link { background: none; border: 0; color: var(--muted); text-decoration: underline; cursor: pointer; font: inherit; padding: .4rem; }
+.link:hover { color: var(--text); }
+.sync-chip { margin-right: auto; }
+.sync-chip a { color: var(--muted); text-decoration: none; font-size: .88rem; display: inline-flex; align-items: center; gap: .45rem; }
+.spinner { width: 13px; height: 13px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin .9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.account { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem 1rem; }
+.account strong { font-size: 1.1rem; }
+.account .actions { margin: 0 0 0 auto; }

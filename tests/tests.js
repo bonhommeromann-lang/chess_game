@@ -16,7 +16,7 @@ import {
 import { moveOutcome, positionOutcome, probe } from '../src/chess/tablebase.js';
 import { analyse } from '../src/chess/engine.js';
 import {
-  analyseGame, badgesFromGame, classifyError, controlVerdict, endgameSkill, motifOfMove, parseGame, playerColor,
+  analyseGame, badgesFromGame, classifyError, timeClassOf, isErrorMove, motifOfLine, winChance, controlVerdict, endgameSkill, motifOfMove, parseGame, playerColor,
   splitPgn,
 } from '../src/analysis.js';
 import { SKILLS, BRANCHES, skillById } from '../src/data/skills.js';
@@ -211,6 +211,32 @@ function complete2(s, day) {
   eq('enfilade dame puis tour', motifOfMove('2r5/3q4/8/8/8/8/8/K4B1k w - - 0 1', 'f1h3'), 'enfilade');
   const line = playUci('4k3/8/8/8/8/8/8/4K2R w - - 0 1', 'h1h7');
   eq('pas de motif de ligne sans cible', detectLineMotif(line.after, line.move), null);
+}
+
+// -- Cadences ---------------------------------------------------------------------------------
+{
+  eq('cadence bullet', timeClassOf('60'), 'bullet');
+  eq('cadence bullet avec incrément', timeClassOf('60+1'), 'bullet');
+  eq('cadence blitz', timeClassOf('300+2'), 'blitz');
+  eq('cadence rapide', timeClassOf('600'), 'rapid');
+  eq('cadence classique', timeClassOf('1800+30'), 'classical');
+  eq('correspondance', timeClassOf('1/86400'), 'daily');
+  eq('cadence absente', timeClassOf(undefined), 'unknown');
+
+  const mix = emptyState();
+  mix.games = [
+    { date: '2026-01-01', rating: 1000, timeClass: 'blitz' },
+    { date: '2026-01-02', rating: 1600, timeClass: 'rapid' },
+    { date: '2026-01-03', rating: 1400, timeClass: 'rapid' },
+    { date: '2026-01-04', rating: 2200, timeClass: 'bullet' },
+    { date: '2026-01-05', rating: 2200, timeClass: 'bullet' },
+    { date: '2026-01-06', rating: 2200, timeClass: 'bullet' },
+  ];
+  eq('Élo : cadence principale, sans mélanger ni compter le bullet', estimateElo(mix).rating, 1500);
+  check('Élo : cadence annoncée', estimateElo(mix).source.includes('rapide'));
+  const onlyBullet = emptyState();
+  onlyBullet.games = [{ date: '2026-01-01', rating: 900, timeClass: 'bullet' }];
+  eq('Élo : le bullet sert s’il n’y a rien d’autre', estimateElo(onlyBullet).rating, 900);
 }
 
 // -- Lien entre erreurs et compétences -------------------------------------------------------
@@ -464,6 +490,49 @@ for (const boss of BOSSES) {
   check('carte : tout tient dans le cadre', pos.every((p) => p.x - p.r >= 0 && p.x + p.r <= 1200 && p.y - p.r >= 0));
   const overlap = pos.some((a, i) => pos.slice(i + 1).some((b) => Math.hypot(a.x - b.x, a.y - b.y) < a.r + b.r));
   check('carte : aucun nœud ne se chevauche', !overlap);
+}
+
+// -- Qualité de la détection, mesurée sur des références externes ----------------------------
+// Seuils volontairement sous les mesures : ils bloquent une régression, pas une variation.
+{
+  const motifs = await (await fetch('fixtures/motifs.json')).json();
+  const THEMES = { fork: ['fourchette', 0.9, 0.75], skewer: ['enfilade', 0.85, 0.75], pin: ['clouage', 0.35, 0.75], hangingPiece: ['pieces-en-prise', 0.6, 0.8], mateIn1: ['mat-en-1', 0.95, 0.95] };
+  const predictions = motifs.map((item) => {
+    const moves = item.moves.split(' ');
+    const g = new Chess(item.fen);
+    g.move({ from: moves[0].slice(0, 2), to: moves[0].slice(2, 4), promotion: moves[0][4] });
+    return motifOfLine(g.fen(), moves.slice(1));
+  });
+  for (const [theme, [skill, minRecall, minPrecision]] of Object.entries(THEMES)) {
+    const labelled = motifs.filter((m) => m.themes.includes(theme));
+    const hits = motifs.filter((m, i) => m.themes.includes(theme) && predictions[i] === skill).length;
+    const predicted = predictions.filter((p) => p === skill).length;
+    check(`motif ${skill} : rappel`, hits / labelled.length >= minRecall, (hits / labelled.length).toFixed(2));
+    check(`motif ${skill} : précision`, hits / predicted >= minPrecision, (hits / predicted).toFixed(2));
+  }
+
+  const judged = await (await fetch('fixtures/judged_games.json')).json();
+  const scores = await (await fetch('fixtures/judged_scores.json')).json();
+  let flagged = 0;
+  let right = 0;
+  let foundBlunders = 0;
+  let blunders = 0;
+  judged.forEach((game, g) => {
+    game.moves.forEach((_, ply) => {
+      const label = game.labels[ply];
+      if (label === '??') blunders += 1;
+      if (isErrorMove(scores[g].scores[ply], -scores[g].scores[ply + 1])) {
+        flagged += 1;
+        if (label) right += 1;
+        if (label === '??') foundBlunders += 1;
+      }
+    });
+  });
+  check('erreurs : au moins 85 % des signalements sont justes', right / flagged >= 0.85, (right / flagged).toFixed(2));
+  check('erreurs : au moins 65 % des gaffes sont trouvées', foundBlunders / blunders >= 0.65, (foundBlunders / blunders).toFixed(2));
+  check('chances de gain : symétriques', Math.abs(winChance(300) + winChance(-300) - 100) < 1e-9);
+  check('perdre un pion à égalité est une erreur', isErrorMove(0, -200));
+  check('perdre un pion en partie gagnée n’en est pas une', !isErrorMove(1500, 1300));
 }
 
 // -- Moteur ---------------------------------------------------------------------------------

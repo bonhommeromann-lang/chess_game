@@ -12,7 +12,7 @@ export const emptyState = () => ({
   elo: { rating: 1000, attempts: 0 }, // estimation d'après les exercices classés
   daily: {},    // jour -> { tactics, boss, story, done }
   log: [],      // { day, type: 'gain'|'loss', id, reason }
-  settings: { username: '' },
+  settings: { username: '', platform: null, onboarded: false },
 });
 
 let state = null;

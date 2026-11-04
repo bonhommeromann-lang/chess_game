@@ -3,7 +3,8 @@ import { dayKey } from './core/time.js';
 import { loadState, saveState } from './core/store.js';
 import { syncDecay } from './core/mastery.js';
 import { SKILLS } from './data/skills.js';
-import { refreshElo } from './views/elobar.js';
+import { refreshElo, refreshSync } from './views/elobar.js';
+import { onSync, syncAccount } from './sync.js';
 import { renderHome } from './views/home.js';
 import { renderTree, renderSkill } from './views/tree.js';
 import { renderSkillSession, renderQuestTactics } from './views/session.js';
@@ -29,9 +30,13 @@ const routes = [
   [/^\/progres$/, 'progres', renderProgress],
 ];
 
-function navigate() {
+function matchRoute() {
   const path = location.hash.replace(/^#/, '') || '/';
-  const match = routes.map(([re, nav, view]) => ({ m: path.match(re), nav, view })).find((r) => r.m);
+  return routes.map(([re, nav, view]) => ({ m: path.match(re), nav, view })).find((r) => r.m);
+}
+
+function navigate() {
+  const match = matchRoute();
   cleanup?.();
   cleanup = null;
   window.scrollTo(0, 0);
@@ -47,6 +52,7 @@ function navigate() {
   syncDecay(state, SKILLS, dayKey());
   saveState();
   refreshElo();
+  refreshSync();
   try {
     cleanup = match.view(app, ...match.m.slice(1)) ?? null;
   } catch (err) {
@@ -55,5 +61,22 @@ function navigate() {
   }
 }
 
+// Les écrans sans exercice en cours se mettent à jour quand une partie vient d'être analysée.
+const LIVE_VIEWS = new Set([renderHome, renderGames, renderProgress, renderTree]);
+onSync(() => {
+  refreshElo();
+  refreshSync();
+  const match = matchRoute();
+  const typing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName);
+  const onWelcome = !loadState().settings.onboarded;
+  if (match && LIVE_VIEWS.has(match.view) && !typing && !onWelcome) {
+    const y = window.scrollY;
+    cleanup?.();
+    cleanup = match.view(app, ...match.m.slice(1)) ?? null;
+    window.scrollTo(0, y);
+  }
+});
+
 window.addEventListener('hashchange', navigate);
 navigate();
+syncAccount();

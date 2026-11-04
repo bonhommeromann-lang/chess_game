@@ -7,6 +7,8 @@ import { dailyEntry, streakInfo, STORY_GOAL, TACTICS_GOAL } from '../core/quests
 import { BRANCHES, SKILLS, skillsOfBranch, skillById } from '../data/skills.js';
 import { BOSSES } from '../data/bosses.js';
 import { skillMap } from './skillmap.js';
+import { renderWelcome } from './welcome.js';
+import { syncStatus } from '../sync.js';
 import { DECAY_REASON, esc } from './ui.js';
 
 /** Tâche de « mise à l'épreuve » du jour : revanche due, sinon compétence orange, sinon la suivante. */
@@ -38,8 +40,21 @@ function questRow(label, detail, done, href) {
   </li>`;
 }
 
+function syncBanner() {
+  const status = syncStatus();
+  if (status.running) {
+    return `<p class="banner">Analyse de tes parties en cours${status.total ? ` : ${status.done} sur ${status.total}` : ''}. Tu peux t’entraîner pendant ce temps, l’arbre se met à jour tout seul.</p>`;
+  }
+  if (status.error) return `<p class="banner warn">${esc(status.error)} <a href="#/parties">Voir le compte</a></p>`;
+  return status.message ? `<p class="banner">${esc(status.message)}</p>` : '';
+}
+
 export function renderHome(app) {
   const state = loadState();
+  if (!state.settings.onboarded) {
+    renderWelcome(app, () => renderHome(app));
+    return;
+  }
   const today = dayKey();
   const entry = dailyEntry(state, today);
   const streak = streakInfo(state, today);
@@ -49,6 +64,7 @@ export function renderHome(app) {
   const validated = SKILLS.filter((s) => skillStatus(state, s, today) === 'validated').length;
 
   app.innerHTML = `
+    ${syncBanner()}
     <section class="map-panel">
       <header class="map-head">
         <div>

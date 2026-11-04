@@ -2,6 +2,7 @@
 import { dayKey, formatDay, monthKey, monthLabel } from '../core/time.js';
 import { loadState } from '../core/store.js';
 import { BADGES, controlVerdict } from '../analysis.js';
+import { CADENCE_NAMES, cadenceOf, mainCadence } from '../core/elo.js';
 import { skillById } from '../data/skills.js';
 import { esc } from './ui.js';
 
@@ -68,7 +69,8 @@ export function renderProgress(app, monthArg = null) {
   }
   const top = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 5);
   const topMax = top[0]?.[1] ?? 1;
-  const rated = games.filter((g) => g.rating)
+  const cadence = mainCadence(state.games);
+  const rated = games.filter((g) => g.rating && cadenceOf(g) === cadence)
     .sort((a, b) => a.date.localeCompare(b.date))
     .map((g) => ({ date: g.date, rating: g.rating }));
 
@@ -115,7 +117,7 @@ export function renderProgress(app, monthArg = null) {
           ${losses.length ? `<ul class="plain">${losses.map((l) => `<li>${skillLink(l.id)} <span class="muted">${formatDay(l.day)}</span></li>`).join('')}</ul>` : '<p class="muted">Aucune ce mois-ci.</p>'}
         </div>
       </div>
-      <h3>Classement en parties réelles</h3>
+      <h3>Classement en parties réelles${CADENCE_NAMES[cadence] ? ` (${CADENCE_NAMES[cadence]})` : ''}</h3>
       ${rated.length ? ratingChart(rated, app.clientWidth - 72) : '<p class="muted">Pas de partie classée ce mois-ci.</p>'}
     </section>
 

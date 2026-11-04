@@ -188,6 +188,37 @@ export function detectLineMotif(after, move) {
   return null;
 }
 
+/**
+ * Exploitation d'un clouage déjà en place : une de nos pièces à longue portée cloue une pièce
+ * adverse sur son roi ou sa dame, et le coup joué attaque ou prend cette pièce clouée.
+ */
+export function exploitsPin(after, move) {
+  const us = move.color;
+  const them = us === 'w' ? 'b' : 'w';
+  const targets = new Set(attacksFrom(after, move.to, us)
+    .filter(({ piece }) => piece.color === them)
+    .map(({ square }) => square));
+  for (const piece of allPieces(after)) {
+    if (piece.color !== us || !['b', 'r', 'q'].includes(piece.type)) continue;
+    for (const [df, dr] of DIRS[piece.type]) {
+      let cf = fileIdx(piece.square) + df;
+      let cr = rankOf(piece.square) + dr;
+      const hits = [];
+      while (toSq(cf, cr) && hits.length < 2) {
+        const found = after.get(toSq(cf, cr));
+        if (found) hits.push({ ...found, square: toSq(cf, cr) });
+        cf += df;
+        cr += dr;
+      }
+      if (hits.length < 2 || hits[0].color !== them || hits[1].color !== them) continue;
+      const [front, back] = hits;
+      const pinned = VALUE[front.type] >= 3 && VALUE[back.type] > VALUE[front.type] && ['k', 'q'].includes(back.type);
+      if (pinned && targets.has(front.square) && piece.square !== move.to) return true;
+    }
+  }
+  return false;
+}
+
 /** Applique un coup UCI et renvoie { after, move } sans modifier la position d'origine. */
 export function playUci(fen, uci) {
   const game = new Chess(fen, { skipValidation: true });
