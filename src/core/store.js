@@ -9,6 +9,7 @@ export const emptyState = () => ({
   story: {},    // id de partie -> { best, attempts, lastDay }
   games: [],    // parties réelles importées et analysées
   badges: {},   // id -> { day, gameId }
+  elo: { rating: 1000, attempts: 0 }, // estimation d'après les exercices classés
   daily: {},    // jour -> { tactics, boss, story, done }
   log: [],      // { day, type: 'gain'|'loss', id, reason }
   settings: { username: '' },

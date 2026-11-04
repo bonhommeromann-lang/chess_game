@@ -6,9 +6,11 @@ import { loadState, saveState } from '../core/store.js';
 import {
   nextBand, PASS_THRESHOLD, recordSession, REVIEW_SIZE, SESSION_SIZE, skillData, skillStatus,
 } from '../core/mastery.js';
+import { recordRatedExercise } from '../core/elo.js';
 import { advanceQuest, TACTICS_GOAL } from '../core/quests.js';
 import { buildSession, buildTacticsQuest } from '../exercises.js';
 import { skillById, SKILLS } from '../data/skills.js';
+import { refreshElo } from './elobar.js';
 import { esc, pause, pct } from './ui.js';
 
 const sideLabel = (turn) => (turn === 'w' ? 'Trait aux blancs' : 'Trait aux noirs');
@@ -182,6 +184,11 @@ async function runItems(host, items, header, isCurrent) {
     const { correct } = await playItem(host, items[i], { isCurrent });
     if (!isCurrent()) return null;
     results.push({ correct, weight: items[i].weight, id: items[i].id });
+    if (items[i].rating) {
+      recordRatedExercise(loadState(), items[i].rating, correct);
+      saveState();
+      refreshElo();
+    }
   }
   return results;
 }

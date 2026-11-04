@@ -161,7 +161,7 @@ export const BADGES = {
  * Analyse une partie avec le moteur. onProgress(fait, total).
  * Retourne l'enregistrement conservé dans l'état du joueur.
  */
-export async function analyseGame(parsed, color, today, { depth = 10, onProgress, signal } = {}) {
+export async function analyseGame(parsed, color, today, { depth = 14, onProgress, signal } = {}) {
   const positions = [...parsed.moves.map((m) => m.before), parsed.moves.at(-1).after];
   const evals = [];
   for (let i = 0; i < positions.length; i += 1) {
@@ -273,11 +273,15 @@ export async function fetchChessComGames(username, max) {
   if (!archives.ok) throw new Error(`Chess.com a répondu ${archives.status}.`);
   const list = (await archives.json()).archives ?? [];
   const out = [];
-  for (const url of list.reverse()) {
+  for (const url of [...list].reverse()) {
     if (out.length >= max) break;
-    const response = await fetch(`${url}/pgn`);
+    const response = await fetch(url);
+    // Le mois en cours peut ne pas être encore disponible : on passe au précédent.
+    if (response.status === 404) continue;
     if (!response.ok) throw new Error(`Chess.com a répondu ${response.status}.`);
-    out.push(...splitPgn(await response.text()).reverse());
+    const { games = [] } = await response.json();
+    // Les variantes (Chess960...) ne relèvent pas de l'entraînement.
+    out.push(...games.filter((g) => g.rules === 'chess' && g.pgn).map((g) => g.pgn).reverse());
   }
   return out.slice(0, max);
 }

@@ -23,6 +23,9 @@ function start() {
     worker.onmessage = (e) => {
       if (String(e.data).startsWith('uciok')) {
         worker.postMessage('setoption name Hash value 32');
+        // Sans cela, Stockfish 10 favorise le camp au trait : les notes avant et après un coup
+        // ne seraient pas comparables, et de bons coups passeraient pour des erreurs.
+        worker.postMessage('setoption name Contempt value 0');
         worker.postMessage('isready');
       }
       if (String(e.data).startsWith('readyok')) {

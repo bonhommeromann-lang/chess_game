@@ -7,6 +7,8 @@ import {
   rematchInfo, scoreSession, skillStatus, syncDecay,
 } from '../src/core/mastery.js';
 import { advanceQuest, streakInfo } from '../src/core/quests.js';
+import { estimateElo, recordRatedExercise, START_RATING } from '../src/core/elo.js';
+import { layoutSkills } from '../src/views/skillmap.js';
 import {
   bishopQuality, detectFork, detectLineMotif, doubledPawns, isolatedPawns, materialKey, openFiles,
   passedPawns, playUci, semiOpenFiles, squareColor, weakSquares,
@@ -14,7 +16,7 @@ import {
 import { moveOutcome, positionOutcome, probe } from '../src/chess/tablebase.js';
 import { analyse } from '../src/chess/engine.js';
 import {
-  badgesFromGame, classifyError, controlVerdict, endgameSkill, motifOfMove, parseGame, playerColor,
+  analyseGame, badgesFromGame, classifyError, controlVerdict, endgameSkill, motifOfMove, parseGame, playerColor,
   splitPgn,
 } from '../src/analysis.js';
 import { SKILLS, BRANCHES, skillById } from '../src/data/skills.js';
@@ -23,6 +25,7 @@ import { GAMES } from '../src/data/games.js';
 import { LINES, QUIZZES } from '../src/data/quizzes.js';
 import { buildSession, GENERATORS, loadEndgames, loadPuzzles } from '../src/exercises.js';
 import { pointsForDelta } from '../src/views/story.js';
+import { MAX_FIGHT_PAWN_RANK, pawnRank } from '../src/views/boss.js';
 
 const out = document.getElementById('out');
 const failures = [];
@@ -365,6 +368,9 @@ for (const key of ['lucena', 'philidor']) {
 endgames.lucena.flat().forEach((p) => check('Lucena : le pont est nécessaire', p.toPromotion >= 5, String(p.toPromotion)));
 const avgOf = (list, f) => list.reduce((n, p) => n + f(p), 0) / list.length;
 check('Lucena : le palier 3 est plus long', avgOf(endgames.lucena[2], (p) => p.toPromotion) > avgOf(endgames.lucena[0], (p) => p.toPromotion));
+eq('rangée du pion', pawnRank('8/8/8/8/4P3/8/8/4K2k w - - 0 1'), 4);
+check('Opposition : assez de vraies finales à jouer',
+  endgames.opposition.win.filter((p) => pawnRank(p.fen) <= MAX_FIGHT_PAWN_RANK).length >= 10);
 check('Carré : positions', endgames.carre.length >= 16, String(endgames.carre.length));
 check('Carré : deux réponses possibles', endgames.carre.some((c) => c.caught) && endgames.carre.some((c) => !c.caught));
 
@@ -421,11 +427,58 @@ for (const boss of BOSSES) {
   check('Philidor : certains coups perdent', info.moves.some((m) => moveOutcome(info, m.uci) === 'loss'));
 }
 
+// -- Élo estimé ------------------------------------------------------------------------------
+{
+  const s = emptyState();
+  eq('Élo : aucune estimation sans données', estimateElo(s).rating, null);
+  for (let i = 0; i < 4; i += 1) recordRatedExercise(s, 1200, true);
+  eq('Élo : pas d’estimation avant 5 exercices', estimateElo(s).rating, null);
+  recordRatedExercise(s, 1200, true);
+  check('Élo : réussir fait monter', estimateElo(s).rating > START_RATING);
+  check('Élo : marqué comme approximatif', !estimateElo(s).reliable);
+
+  const low = emptyState();
+  for (let i = 0; i < 10; i += 1) recordRatedExercise(low, 1200, false);
+  check('Élo : échouer fait baisser', estimateElo(low).rating < START_RATING);
+
+  const farm = emptyState();
+  for (let i = 0; i < 300; i += 1) recordRatedExercise(farm, 600, true);
+  check('Élo : les exercices faciles ne font pas monter sans fin', estimateElo(farm).rating < 1600, String(estimateElo(farm).rating));
+
+  const hard = emptyState();
+  for (let i = 0; i < 30; i += 1) recordRatedExercise(hard, 1900, true);
+  check('Élo : réussir du difficile compte davantage', estimateElo(hard).rating > estimateElo(farm).rating);
+
+  const real = emptyState();
+  real.games = [{ date: '2026-01-01', rating: 900 }, { date: '2026-03-01', rating: 1500 }];
+  eq('Élo : parties réelles seules', estimateElo(real).rating, 1200);
+  check('Élo : parties réelles fiables', estimateElo(real).reliable);
+  for (let i = 0; i < 40; i += 1) recordRatedExercise(real, 2500, true);
+  check('Élo : les parties pèsent le plus', Math.abs(estimateElo(real).rating - 1200) < Math.abs(real.elo.rating - 1200) / 2);
+}
+
+// -- Carte des compétences -------------------------------------------------------------------
+{
+  const pos = Object.values(layoutSkills());
+  eq('carte : toutes les compétences placées', pos.length, SKILLS.length);
+  check('carte : tout tient dans le cadre', pos.every((p) => p.x - p.r >= 0 && p.x + p.r <= 1200 && p.y - p.r >= 0));
+  const overlap = pos.some((a, i) => pos.slice(i + 1).some((b) => Math.hypot(a.x - b.x, a.y - b.y) < a.r + b.r));
+  check('carte : aucun nœud ne se chevauche', !overlap);
+}
+
 // -- Moteur ---------------------------------------------------------------------------------
 {
   const mate = await analyse('6k1/5ppp/8/8/8/8/5PPP/3Q2K1 w - - 0 1', 8);
   eq('Stockfish trouve le mat', mate.best, 'd1d8');
   check('Stockfish note le mat', mate.score > 90000, String(mate.score));
+
+  // Non-régression : une ligne de théorie saine ne doit pas être remplie de fausses erreurs.
+  const line = '1. e4 e5 2. Nf3 Nc6 3. Bc4 Nf6 4. Ng5 d5 5. exd5 Na5 6. Bb5+ c6 7. dxc6 bxc6 8. Be2 h6 *';
+  const sound = await analyseGame(parseGame(line), 'w', '2026-01-01');
+  eq('analyse : pas de fausse erreur sur une ligne de théorie', sound.errors.map((e) => e.san), []);
+  // Et une vraie gaffe reste détectée.
+  const blunder = await analyseGame(parseGame('1. e4 e5 2. Qh5 Nc6 3. Qxf7+ Kxf7 *'), 'w', '2026-01-01');
+  check('analyse : une dame donnée est une erreur', blunder.errors.some((e) => e.san === 'Qxf7+'));
 }
 
 out.innerHTML = `<span class="${failures.length ? 'fail' : 'pass'}">${passes} réussis, ${failures.length} échecs</span>\n${failures.map((f) => `ÉCHEC ${f}`).join('\n')}`;

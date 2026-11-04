@@ -27,7 +27,8 @@ réimporter.
 | **Histoire** | 8 parties célèbres, classées par époque, thème ou joueur. Barème 3/2/1/0 calculé par Stockfish, idée expliquée après chaque coup, annonce du plan. |
 | **Parties** | Import Lichess, Chess.com ou PGN. Analyse par Stockfish, erreurs reliées aux compétences, badges gagnés en conditions réelles. |
 | **Progrès** | Bilan mensuel, courbe de classement et règle de contrôle (les récompenses se retrouvent-elles dans les parties ?). |
-| **Aujourd'hui** | Quêtes quotidiennes et série, avec un jour manqué toléré par semaine. |
+| **Aujourd'hui** | Arbre lumineux qui reflète le niveau, quêtes quotidiennes et série (un jour manqué toléré par semaine). |
+| **Élo estimé** | Affiché en haut de chaque page. Combine les parties réelles importées (70 %) et les exercices classés (30 %). |
 
 ## Réseau
 
@@ -46,6 +47,8 @@ Tout fonctionne hors ligne sauf :
   et d'ouverture sont détectées automatiquement.
 - **La détection des motifs est heuristique** : une erreur peut être rattachée à la mauvaise
   compétence, ou à aucune. C'est pourquoi il faut la voir dans deux parties avant de passer en orange.
+- **L'Élo est une estimation** : le classement des exercices n'est pas celui d'une partie. Tant
+  qu'aucune partie n'est importée, il est précédé de « ≈ » jusqu'à 20 exercices classés.
 - **Le contenu rédigé est limité** : les questions d'ouverture et de plans sont en nombre fini
   (8 à 10 par compétence) et finissent par se répéter, contrairement aux tactiques.
 - **Certains commentaires de parties sont rédigés à la main** : les coups viennent des archives,
@@ -61,6 +64,8 @@ python tests/e2e_boss.py       # chaque boss joué contre la vraie table de fina
 ```
 
 Les tests utilisent Edge installé sur la machine, et les deux derniers ont besoin du réseau.
+Lichess refuse les navigateurs headless : sa réponse est simulée dans `e2e_boss.py`, seul Chess.com
+est appelé pour de vrai.
 Pour une exécution manuelle des tests de règles : ouvrir `/tests/` sur le serveur local.
 
 ## Régénérer les données
@@ -76,7 +81,7 @@ python tools/build_endgames.py    # pip install chess ; valide chaque position p
 src/core/      règles pures : maîtrise, quêtes, dates, sauvegarde
 src/chess/     échiquier, moteur, tables de finales, détecteurs
 src/data/      compétences, boss, parties, questions
-src/views/     écrans
+src/views/     écrans (skillmap.js : la carte de l'accueil)
 src/analysis.js    analyse des parties réelles
 src/exercises.js   construction des séances
 data/          données générées par tools/

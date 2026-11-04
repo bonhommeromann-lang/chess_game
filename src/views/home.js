@@ -1,12 +1,12 @@
-// Accueil : la séance du jour, la série et le profil par branche.
+// Accueil : l'arbre du joueur, ses quêtes du jour et sa série.
 import { dayKey } from '../core/time.js';
+import { estimateElo } from '../core/elo.js';
 import { loadState } from '../core/store.js';
-import {
-  branchLevel, levelName, rematchInfo, skillStatus,
-} from '../core/mastery.js';
+import { branchLevel, levelName, rematchInfo, skillStatus } from '../core/mastery.js';
 import { dailyEntry, streakInfo, STORY_GOAL, TACTICS_GOAL } from '../core/quests.js';
 import { BRANCHES, SKILLS, skillsOfBranch, skillById } from '../data/skills.js';
 import { BOSSES } from '../data/bosses.js';
+import { skillMap } from './skillmap.js';
 import { DECAY_REASON, esc } from './ui.js';
 
 /** Tâche de « mise à l'épreuve » du jour : revanche due, sinon compétence orange, sinon la suivante. */
@@ -34,7 +34,7 @@ function questRow(label, detail, done, href) {
   return `<li class="quest ${done ? 'done' : ''}">
     <span class="tick" aria-hidden="true"></span>
     <span class="quest-text"><strong>${esc(label)}</strong><small>${esc(detail)}</small></span>
-    ${done ? '<span class="tag good">Fait</span>' : `<a class="btn small" href="${href}">Commencer</a>`}
+    ${done ? '<span class="tag good">Fait</span>' : `<a class="btn small primary" href="${href}">Jouer</a>`}
   </li>`;
 }
 
@@ -44,43 +44,26 @@ export function renderHome(app) {
   const entry = dailyEntry(state, today);
   const streak = streakInfo(state, today);
   const task = practiceTask(state, today);
+  const elo = estimateElo(state);
   const decayed = SKILLS.filter((s) => skillStatus(state, s, today) === 'decayed');
+  const validated = SKILLS.filter((s) => skillStatus(state, s, today) === 'validated').length;
 
   app.innerHTML = `
-    <section class="hero">
-      <div>
-        <h1>Ta séance du jour</h1>
-        <p class="lead">Dix à quinze minutes suffisent. Une petite séance régulière vaut mieux qu’une longue séance rare.</p>
-      </div>
-      <div class="streak" aria-label="Série en cours">
-        <strong>${streak.length}</strong>
-        <span>jour${streak.length > 1 ? 's' : ''} de série</span>
-        <small>${streak.toleranceUsed ? 'Jour de tolérance utilisé cette semaine' : 'Un jour manqué par semaine est pardonné'}</small>
-      </div>
-    </section>
-
-    <section class="panel">
-      <h2>Quêtes</h2>
-      <ul class="quests">
-        ${questRow(`${TACTICS_GOAL} tactiques`, `${Math.min(entry.tactics, TACTICS_GOAL)} sur ${TACTICS_GOAL}`, entry.tactics >= TACTICS_GOAL, '#/quete/tactique')}
-        ${questRow(task.title, 'Une victoire ou une session réussie', entry.boss >= 1, task.href)}
-        ${questRow(`${STORY_GOAL} coups du mode histoire`, `${Math.min(entry.story, STORY_GOAL)} sur ${STORY_GOAL}`, entry.story >= STORY_GOAL, '#/histoire')}
-      </ul>
-      ${entry.done ? '<p class="banner good">Quêtes terminées : ta série est à jour. Bravo.</p>' : ''}
-    </section>
-
-    ${decayed.length ? `<section class="panel warn">
-      <h2>À réviser</h2>
-      <ul class="plain">${decayed.map((s) => {
-        const reason = state.skills[s.id]?.decay ?? 'parties';
-        return `<li><a href="#/competence/${s.id}">${esc(s.name)}</a> <span class="muted">${esc(DECAY_REASON[reason] ?? '')}</span></li>`;
-      }).join('')}</ul>
-    </section>` : ''}
-
-    <section class="panel">
-      <h2>Ton profil</h2>
-      <p class="muted">Un niveau par branche : il dépend des compétences validées, pas du temps passé.</p>
-      <div class="profile">
+    <section class="map-panel">
+      <header class="map-head">
+        <div>
+          <h1>Ton arbre</h1>
+          <p class="muted">${validated} compétence${validated > 1 ? 's' : ''} validée${validated > 1 ? 's' : ''} sur ${SKILLS.length} : il s’illumine à mesure que tu progresses.</p>
+        </div>
+        <ul class="map-legend" aria-label="Légende">
+          <li><i class="k-validated"></i>Validée</li>
+          <li><i class="k-available"></i>Disponible</li>
+          <li><i class="k-decayed"></i>À réviser</li>
+          <li><i class="k-locked"></i>Verrouillée</li>
+        </ul>
+      </header>
+      ${skillMap(state, today, elo)}
+      <div class="profile-mobile">
         ${BRANCHES.map((b) => {
           const score = branchLevel(state, skillsOfBranch(b.id), today);
           return `<a class="branch-meter" href="#/arbre">
@@ -90,5 +73,35 @@ export function renderHome(app) {
           </a>`;
         }).join('')}
       </div>
-    </section>`;
+    </section>
+
+    <div class="home-columns">
+      <section class="panel">
+        <div class="panel-head">
+          <h2>Quêtes du jour</h2>
+          <span class="muted">10 à 15 minutes</span>
+        </div>
+        <ul class="quests">
+          ${questRow(`${TACTICS_GOAL} tactiques`, `${Math.min(entry.tactics, TACTICS_GOAL)} sur ${TACTICS_GOAL}`, entry.tactics >= TACTICS_GOAL, '#/quete/tactique')}
+          ${questRow(task.title, 'Une victoire ou une session réussie', entry.boss >= 1, task.href)}
+          ${questRow(`${STORY_GOAL} coups du mode histoire`, `${Math.min(entry.story, STORY_GOAL)} sur ${STORY_GOAL}`, entry.story >= STORY_GOAL, '#/histoire')}
+        </ul>
+        ${entry.done ? '<p class="banner good">Quêtes terminées : ta série est à jour.</p>' : ''}
+      </section>
+
+      <div class="home-side">
+        <section class="streak" aria-label="Série en cours">
+          <strong>${streak.length}</strong>
+          <span>jour${streak.length > 1 ? 's' : ''} de série</span>
+          <small>${streak.toleranceUsed ? 'Jour de tolérance utilisé cette semaine' : 'Un jour manqué par semaine est pardonné'}</small>
+        </section>
+        ${decayed.length ? `<section class="panel warn">
+          <h2>À réviser</h2>
+          <ul class="plain">${decayed.map((s) => {
+            const reason = state.skills[s.id]?.decay ?? 'parties';
+            return `<li><a href="#/competence/${s.id}">${esc(s.name)}</a><br><small class="muted">${esc(DECAY_REASON[reason] ?? '')}</small></li>`;
+          }).join('')}</ul>
+        </section>` : ''}
+      </div>
+    </div>`;
 }

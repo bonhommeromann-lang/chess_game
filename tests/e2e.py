@@ -95,7 +95,9 @@ try:
         page.goto(BASE)
         page.wait_for_selector(".quests")
         ok("accueil : 3 quêtes", page.locator(".quest").count() == 3)
-        ok("accueil : 4 branches", page.locator(".branch-meter").count() == 4)
+        ok("accueil : 4 branches sur la carte", page.locator(".map-hub").count() == 4)
+        ok("accueil : 25 compétences sur la carte", page.locator(".map-node").count() == 25)
+        ok("Élo : à évaluer au départ", "À évaluer" in page.inner_text("[data-elo]"))
         page.screenshot(path=SHOTS / "01-accueil.png", full_page=True)
 
         # --- Arbre
@@ -144,6 +146,9 @@ try:
         page.screenshot(path=SHOTS / "04-resultat.png", full_page=True)
         st = state(page)
         ok("état : une session enregistrée", len(st["skills"]["mat-en-1"]["passes"]) == 1)
+        elo_text = page.inner_text(".elo-value")
+        ok("Élo : estimé après les exercices", any(ch.isdigit() for ch in elo_text), elo_text)
+        print("   Élo affiché :", elo_text)
         ok("état : pas encore validée", st["skills"]["mat-en-1"]["validatedDay"] is None)
 
         page.goto(f"{BASE}/#/competence/mat-en-1")
@@ -211,6 +216,11 @@ try:
         page.wait_for_selector(".tree")
         ok("arbre : Mat roi + tour débloquée", "available" in page.get_attribute('[data-skill="mat-kr"]', "class"))
         page.screenshot(path=SHOTS / "11-arbre-apres.png", full_page=True)
+        page.goto(BASE + "/#/")
+        page.wait_for_selector(".skill-map")
+        ok("carte : Mat roi + dame illuminée", "validated" in page.get_attribute('.map-node[data-skill="mat-kq"]', "class"))
+        ok("carte : Mat en 1 à 1 sur 2", page.locator('.map-node[data-skill="mat-en-1"] .map-count').count() == 1)
+        page.screenshot(path=SHOTS / "11b-accueil-progres.png", full_page=True)
 
         # --- Mode histoire, avec moteur
         page.goto(f"{BASE}/#/histoire")

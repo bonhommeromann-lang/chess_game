@@ -72,6 +72,7 @@ export class Board {
   render() {
     const targets = this.selected ? this.targets(this.selected) : [];
     this.root.replaceChildren();
+    this.root.dataset.movable = String(this.movable);
     for (const sq of this.squares()) {
       const fileIndex = FILES.indexOf(sq[0]);
       const rank = Number(sq[1]);

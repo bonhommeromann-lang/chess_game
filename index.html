@@ -10,18 +10,23 @@
 </head>
 <body>
   <a class="skip" href="#app">Aller au contenu</a>
-  <header class="topbar">
-    <a class="brand" href="#/"><img src="vendor/pieces/wN.svg" alt="" width="30" height="30">Quête d’Échecs</a>
+  <aside class="sidebar">
+    <a class="brand" href="#/"><img src="vendor/pieces/wN.svg" alt="" width="32" height="32"><span>Quête d’Échecs</span></a>
     <nav aria-label="Navigation principale">
-      <a href="#/" data-nav="home">Aujourd’hui</a>
-      <a href="#/arbre" data-nav="arbre">Arbre</a>
-      <a href="#/boss" data-nav="boss">Boss</a>
-      <a href="#/histoire" data-nav="histoire">Histoire</a>
-      <a href="#/parties" data-nav="parties">Parties</a>
-      <a href="#/progres" data-nav="progres">Progrès</a>
+      <a href="#/" data-nav="home"><img src="vendor/pieces/wK.svg" alt="">Aujourd’hui</a>
+      <a href="#/arbre" data-nav="arbre"><img src="vendor/pieces/wP.svg" alt="">Compétences</a>
+      <a href="#/boss" data-nav="boss"><img src="vendor/pieces/wQ.svg" alt="">Boss</a>
+      <a href="#/histoire" data-nav="histoire"><img src="vendor/pieces/wB.svg" alt="">Histoire</a>
+      <a href="#/parties" data-nav="parties"><img src="vendor/pieces/wR.svg" alt="">Parties</a>
+      <a href="#/progres" data-nav="progres"><img src="vendor/pieces/wN.svg" alt="">Progrès</a>
     </nav>
-  </header>
-  <main id="app" tabindex="-1"></main>
+  </aside>
+  <div class="content">
+    <header class="topbar">
+      <div class="elo" data-elo></div>
+    </header>
+    <main id="app" tabindex="-1"></main>
+  </div>
   <script type="module" src="src/main.js"></script>
 </body>
 </html>

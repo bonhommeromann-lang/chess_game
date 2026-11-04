@@ -8,6 +8,7 @@ import {
   analyseGame, badgesFromGame, fetchChessComGames, fetchLichessGames, parseGame, playerColor,
   splitPgn,
 } from '../analysis.js';
+import { refreshElo } from './elobar.js';
 import { esc } from './ui.js';
 
 const OUTCOME = { win: 'Victoire', loss: 'Défaite', draw: 'Nulle', unknown: '—' };
@@ -79,7 +80,7 @@ export function renderGames(app) {
           <textarea name="pgn" rows="6" placeholder="[Event &quot;…&quot;]"></textarea>
         </label>
         <button class="btn primary" data-run>Importer et analyser</button>
-        <p class="muted">Compte environ une minute par partie : l’analyse tourne dans ton navigateur.</p>
+        <p class="muted">Compte quelques minutes par partie : l’analyse tourne dans ton navigateur.</p>
       </form>
       <p class="feedback" data-status role="status" aria-live="polite"></p>
       <div class="bar" data-bar hidden><i></i></div>
@@ -162,6 +163,7 @@ export function renderGames(app) {
           }
         }
         saveState();
+        refreshElo();
         if (active) render();
       }
       say(`${fresh.length} partie${fresh.length > 1 ? 's' : ''} analysée${fresh.length > 1 ? 's' : ''}, ${totalErrors} erreur${totalErrors > 1 ? 's' : ''} repérée${totalErrors > 1 ? 's' : ''}. Voir l’arbre pour les compétences signalées.`, 'good');

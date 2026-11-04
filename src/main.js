@@ -3,6 +3,7 @@ import { dayKey } from './core/time.js';
 import { loadState, saveState } from './core/store.js';
 import { syncDecay } from './core/mastery.js';
 import { SKILLS } from './data/skills.js';
+import { refreshElo } from './views/elobar.js';
 import { renderHome } from './views/home.js';
 import { renderTree, renderSkill } from './views/tree.js';
 import { renderSkillSession, renderQuestTactics } from './views/session.js';
@@ -45,6 +46,7 @@ function navigate() {
   const state = loadState();
   syncDecay(state, SKILLS, dayKey());
   saveState();
+  refreshElo();
   try {
     cleanup = match.view(app, ...match.m.slice(1)) ?? null;
   } catch (err) {

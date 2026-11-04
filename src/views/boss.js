@@ -15,6 +15,10 @@ import { esc, hearts, pause, STATUS_LABEL, statusIcon } from './ui.js';
 
 const START_LIVES = 3;
 export const MAX_TIER = 2;
+export const MAX_FIGHT_PAWN_RANK = 4;
+
+/** Rangée du pion blanc d'après la FEN. */
+export const pawnRank = (fen) => 8 - fen.split(' ')[0].split('/').findIndex((row) => row.includes('P'));
 
 export function renderBossList(app) {
   const state = loadState();
@@ -151,7 +155,7 @@ export function renderBoss(app, id) {
       mur: () => shuffle(data.mur[tier])[0],
       lucena: () => shuffle(data.lucena[tier])[0],
       philidor: () => shuffle(data.philidor[tier])[0],
-      opposition: () => shuffle(data.opposition.win)[0],
+      opposition: () => shuffle(data.opposition.win.filter((p) => pawnRank(p.fen) <= MAX_FIGHT_PAWN_RANK))[0],
     };
     const position = fights[id]();
     if (id === 'opposition') {
