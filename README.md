@@ -43,9 +43,12 @@ Tout fonctionne hors ligne sauf :
 
 ## Limites connues
 
-- **La détection reste imparfaite** : mesurée sur 12 parties annotées par Lichess, 98 % des coups
-  signalés sont de vraies erreurs, mais 26 % des gaffes échappent à la détection, ainsi que la plupart
-  des erreurs moyennes. Le clouage n'est reconnu que dans 40 % des cas. L'échantillon est petit.
+- **La détection privilégie la fiabilité** : sur 12 parties annotées par Lichess, les 40 coups signalés
+  sont tous de vraies erreurs, mais un tiers des gaffes et la plupart des erreurs moyennes échappent à
+  la détection. L'échantillon est petit, et un sacrifice très profond peut encore être mal jugé.
+- **Près de la moitié des erreurs n'ont pas de compétence associée** (21 sur 47 sur les parties
+  contrôlées) : elles sont listées dans l'onglet Parties, mais n'alimentent pas le plan. Le clouage
+  n'est reconnu que dans 40 % des cas.
 - **Pas de comparaison avec d'autres joueurs** en fin de partie du mode histoire : il faudrait un
   serveur. Le score est comparé à votre record.
 - **La stratégie n'est pas reliée aux parties réelles** : seules les erreurs de tactique, de finale

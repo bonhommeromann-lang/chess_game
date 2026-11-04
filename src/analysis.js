@@ -6,8 +6,9 @@ import { moveOutcome, pieceCount, positionOutcome, probe } from './chess/tableba
 import { cadenceOf, mainCadence } from './core/elo.js';
 
 // Seuil et profondeur choisis par mesure (tests/eval_errors.py) : comparé aux annotations de
-// l'analyse serveur Lichess, sur 12 parties, 98 % des coups signalés sont de vraies erreurs et 74 %
-// des gaffes sont trouvées. À profondeur 14 avec 150 centipions, seuls 59 % étaient justes.
+// l'analyse serveur Lichess, sur 12 parties, les 40 coups signalés sont tous de vraies erreurs et 66 %
+// des gaffes sont trouvées, double vérification comprise. À profondeur 14 avec 150 centipions, seuls
+// 59 % des signalements étaient justes.
 export const WIN_DROP_THRESHOLD = 15;
 // Un coup suspect est réexaminé plus loin : un sacrifice profond paraît souvent mauvais au premier abord.
 export const CONFIRM_DEPTH_BONUS = 4;
